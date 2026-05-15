@@ -5,6 +5,8 @@ using UnityEngine;
 public class StarPlotter : MonoBehaviour
 {
     public float scale = 100.0f; // Scale factor for positioning
+    public float starSize = 2f;
+
 
     public LoadData loadData; // Reference to the LoadData script
 
@@ -16,6 +18,8 @@ public class StarPlotter : MonoBehaviour
     public float[] sunPos = new float[3];
 
     public int numToPlot;
+
+    public StarColorMapper colorMapper;
 
     void Start()
     {
@@ -61,9 +65,11 @@ public class StarPlotter : MonoBehaviour
         {
             Vector3 position = new Vector3(xArray[j], yArray[j], zArray[j]);
             GameObject star = Instantiate(starPrefab, position * scale, Quaternion.identity);
-            star.transform.localScale *= 1;
+            star.transform.localScale *= starSize;
             star.transform.SetParent(transform.Find(clusterName));
         }
+
+        colorMapper?.ColorizeCluster(clusterName);
     }
 
     void InstantClusters()
@@ -82,6 +88,8 @@ public class StarPlotter : MonoBehaviour
         for (int i = 0; i < numToPlot; i++)
         {
             string clusterName = clusterNames[i];
+
+            if (!loadData.HasStarData(clusterName)) continue;
 
             Vector3 position = loadData.clusterPositions[clusterName];
 

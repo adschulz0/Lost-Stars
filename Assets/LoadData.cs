@@ -22,6 +22,7 @@ public class LoadData : MonoBehaviour
     private Dictionary<string, List<float>> pm_decByCluster      = new Dictionary<string, List<float>>();
     private Dictionary<string, List<float>> lByCluster           = new Dictionary<string, List<float>>();
     private Dictionary<string, List<float>> bByCluster           = new Dictionary<string, List<float>>();
+    private Dictionary<string, List<float>> releaseTimeByCluster = new Dictionary<string, List<float>>();
 
     public Dictionary<string, Vector3> clusterPositions = new Dictionary<string, Vector3>();
 
@@ -70,6 +71,8 @@ public class LoadData : MonoBehaviour
         Debug.Log($"[LoadData] Star index loaded: {starIndex.Count} clusters indexed.");
     }
 
+    public bool HasStarData(string clusterName) => starIndex.ContainsKey(clusterName);
+
     // -------------------------------------------------------------------------
     // On-demand star loading (called the first time a cluster is clicked)
     // -------------------------------------------------------------------------
@@ -99,17 +102,18 @@ public class LoadData : MonoBehaviour
             }
         }
 
-        var xList     = new List<float>();
-        var yList     = new List<float>();
-        var zList     = new List<float>();
-        var raList    = new List<float>();
-        var decList   = new List<float>();
+        var xList    = new List<float>();
+        var yList    = new List<float>();
+        var zList    = new List<float>();
+        var raList   = new List<float>();
+        var decList  = new List<float>();
         var helioList = new List<float>();
-        var rvList    = new List<float>();
-        var pmRaList  = new List<float>();
+        var rvList   = new List<float>();
+        var pmRaList = new List<float>();
         var pmDecList = new List<float>();
-        var lList     = new List<float>();
-        var bList     = new List<float>();
+        var lList    = new List<float>();
+        var bList    = new List<float>();
+        var rtList   = new List<float>();
 
         string[] lines = Encoding.UTF8.GetString(buf).Split('\n');
         foreach (string line in lines)
@@ -118,7 +122,7 @@ public class LoadData : MonoBehaviour
             if (string.IsNullOrWhiteSpace(row)) continue;
 
             string[] cols = row.Split(',');
-            if (cols.Length < 12) continue;
+            if (cols.Length < 13) continue;
 
             raList.Add(float.Parse(cols[1]));
             decList.Add(float.Parse(cols[2]));
@@ -131,19 +135,42 @@ public class LoadData : MonoBehaviour
             pmDecList.Add(float.Parse(cols[9]));
             lList.Add(float.Parse(cols[10]));
             bList.Add(float.Parse(cols[11]));
+            rtList.Add(float.Parse(cols[12]));
         }
 
-        xByCluster[clusterName]         = xList;
-        yByCluster[clusterName]         = yList;
-        zByCluster[clusterName]         = zList;
-        raByCluster[clusterName]        = raList;
-        decByCluster[clusterName]       = decList;
-        helioDistByCluster[clusterName] = helioList;
-        rvByCluster[clusterName]        = rvList;
-        pm_raByCluster[clusterName]     = pmRaList;
-        pm_decByCluster[clusterName]    = pmDecList;
-        lByCluster[clusterName]         = lList;
-        bByCluster[clusterName]         = bList;
+        xByCluster[clusterName]          = xList;
+        yByCluster[clusterName]          = yList;
+        zByCluster[clusterName]          = zList;
+        raByCluster[clusterName]         = raList;
+        decByCluster[clusterName]        = decList;
+        helioDistByCluster[clusterName]  = helioList;
+        rvByCluster[clusterName]         = rvList;
+        pm_raByCluster[clusterName]      = pmRaList;
+        pm_decByCluster[clusterName]     = pmDecList;
+        lByCluster[clusterName]          = lList;
+        bByCluster[clusterName]          = bList;
+        releaseTimeByCluster[clusterName] = rtList;
+    }
+
+    // -------------------------------------------------------------------------
+    // Column data accessor for StarColorMapper
+    // -------------------------------------------------------------------------
+
+    public List<float> GetColumnData(string clusterName, string column)
+    {
+        switch (column)
+        {
+            case "RA":           return raByCluster.TryGetValue(clusterName,        out var ra)   ? ra   : null;
+            case "Dec":          return decByCluster.TryGetValue(clusterName,       out var dec)  ? dec  : null;
+            case "Helio_Dist":   return helioDistByCluster.TryGetValue(clusterName, out var hd)   ? hd   : null;
+            case "RV":           return rvByCluster.TryGetValue(clusterName,        out var rv)   ? rv   : null;
+            case "pm_ra":        return pm_raByCluster.TryGetValue(clusterName,     out var pmra) ? pmra : null;
+            case "pm_dec":       return pm_decByCluster.TryGetValue(clusterName,    out var pmdc) ? pmdc : null;
+            case "l":            return lByCluster.TryGetValue(clusterName,         out var l)    ? l    : null;
+            case "b":            return bByCluster.TryGetValue(clusterName,         out var b)    ? b    : null;
+            case "Release_Time": return releaseTimeByCluster.TryGetValue(clusterName, out var rt) ? rt   : null;
+            default:             return null;
+        }
     }
 
     // -------------------------------------------------------------------------
