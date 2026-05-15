@@ -32,77 +32,37 @@ public class StarPlotter : MonoBehaviour
             return;
         }
 
-        //PlotStars();
-
         InstantClusters();
         InstantGalaxyCenter();
         InstantSun(sunPos);
-
-        PlotStars();
     }
 
-    void PlotStars()
+    public void PlotStarsForCluster(string clusterName)
     {
-        List<string> clusterNames = new List<string>(loadData.xByCluster.Keys);  // Get list of cluster names
-        //List<string> clusterNames = new List<string>();
-        //clusterNames.Add("NGC_6569");
+        loadData.LoadStarsForCluster(clusterName);
 
-        //Debug.Log(clusterNames.Count);
-        //clusterNames.Count
-        for (int i = 0; i < numToPlot; i++)
+        if (!loadData.xByCluster.ContainsKey(clusterName))
         {
-            string clusterName = clusterNames[i];
+            Debug.LogError($"No star data found for cluster {clusterName}");
+            return;
+        }
 
-            // Get the cluster position
-            //Vector3 clusterPosition = loadData.clusterPositions[clusterName];
+        List<float> xArray = loadData.xByCluster[clusterName];
+        List<float> yArray = loadData.yByCluster[clusterName];
+        List<float> zArray = loadData.zByCluster[clusterName];
 
-            List<float> xArray = loadData.xByCluster[clusterName];
-            List<float> yArray = loadData.yByCluster[clusterName];
-            List<float> zArray = loadData.zByCluster[clusterName];
+        if (xArray.Count != yArray.Count || xArray.Count != zArray.Count)
+        {
+            Debug.LogError($"Star arrays for cluster {clusterName} have different lengths!");
+            return;
+        }
 
-            if (xArray == null || yArray == null || zArray == null)
-            {
-                Debug.LogError($"Star arrays for cluster {clusterName} are null!");
-                continue;
-            }
-
-            if (xArray.Count != yArray.Count || xArray.Count != zArray.Count)
-            {
-                Debug.LogError($"Star arrays for cluster {clusterName} have different lengths!");
-                continue;
-            }
-
-            //Debug.Log($"Number of stars to plot for cluster {clusterName}: {xArray.Count}");
-
-            // Find the cluster GameObject by name
-            GameObject cluster = GameObject.Find(clusterName);
-
-            if (cluster == null)
-            {
-                Debug.LogError($"Cluster GameObject {clusterName} not found!");
-                continue;
-            }
-
-            // Iterate over star positions in this cluster
-            for (int j = 0; j < xArray.Count; j++)
-            {
-                Vector3 position = new Vector3(xArray[j], yArray[j], zArray[j]);
-
-                // Instantiate star GameObject
-                GameObject star = Instantiate(starPrefab, position * scale, Quaternion.identity);
-
-                //change the scale
-                star.transform.localScale *= 1;
-
-                // Optionally parent stars to a container for organizational purposes
-
-                star.transform.SetParent(cluster.transform); // Parent to StarPlotter GameObject
-
-                star.SetActive(false);
-
-                // Customize further properties of the star GameObject here
-                // For example, adjust material, color, etc.
-            }
+        for (int j = 0; j < xArray.Count; j++)
+        {
+            Vector3 position = new Vector3(xArray[j], yArray[j], zArray[j]);
+            GameObject star = Instantiate(starPrefab, position * scale, Quaternion.identity);
+            star.transform.localScale *= 1;
+            star.transform.SetParent(transform.Find(clusterName));
         }
     }
 
@@ -115,11 +75,10 @@ public class StarPlotter : MonoBehaviour
             return;
         }
 
-        List<string> clusterNames = new List<string>(loadData.xByCluster.Keys);  // Get list of cluster names
+        List<string> clusterNames = new List<string>(loadData.clusterPositions.Keys);
 
         numToPlot = Mathf.Min(numToPlot, clusterNames.Count);
 
-        //clusterNames.Count
         for (int i = 0; i < numToPlot; i++)
         {
             string clusterName = clusterNames[i];

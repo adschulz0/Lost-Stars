@@ -18,7 +18,9 @@ public class ClickHandler : MonoBehaviour
     public Color highlightColor = Color.white; // Bluish color
     private Renderer rend;
     public bool starsVisible = false;
+    private bool starsInstantiated = false;
 
+    private StarPlotter starPlotter;
     private GameObject canvasWorldSpace;
 
     public bool clicked;
@@ -28,6 +30,8 @@ public class ClickHandler : MonoBehaviour
         scr_elements = GameObject.Find("Manager").GetComponent<Elements>();
         infoPanel = scr_elements.clusterInfoPanel;
         clusterName = scr_elements.clusterName;
+
+        starPlotter = FindObjectOfType<StarPlotter>();
 
         canvasWorldSpace = GameObject.Find("Canvas World Space");
         clusterNameText = canvasWorldSpace.GetComponentInChildren<Text>();
@@ -87,11 +91,19 @@ public class ClickHandler : MonoBehaviour
     {
         ClickCluster();
 
-        starsVisible = !starsVisible;
-
-        foreach (Transform child in transform)
+        if (!starsInstantiated)
         {
-            child.gameObject.SetActive(starsVisible); //every click, either hide or show all stars
+            starPlotter.PlotStarsForCluster(gameObject.name);
+            starsInstantiated = true;
+            starsVisible = true;
+        }
+        else
+        {
+            starsVisible = !starsVisible;
+            foreach (Transform child in transform)
+            {
+                child.gameObject.SetActive(starsVisible);
+            }
         }
     }
 
