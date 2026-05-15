@@ -3531,7 +3531,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.03137255, g: 0.03137255, b: 0.09411765, a: 0}
+  m_BackGroundColor: {r: 0.745283, g: 0.745283, b: 0.745283, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -4606,7 +4606,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   scale: 100
-  starSize: 1.8
+  starSize: 3
   loadData: {fileID: 713872186}
   starPrefab: {fileID: 6971920840885273673, guid: 257aadb15726f4a46a73cd9aeba6b8e4, type: 3}
   clusterPrefab: {fileID: 5640491737206951799, guid: b7feb40d6fe437343a425bf084280c7e, type: 3}
@@ -4657,10 +4657,10 @@ MonoBehaviour:
   colorbarTitle: {fileID: 1142868227}
   colorbarMin: {fileID: 1122470779}
   colorbarMax: {fileID: 1286934962}
-  color0: {r: 1, g: 1, b: 1, a: 1}
-  color1: {r: 0.19215687, g: 0.40784314, b: 0.5568628, a: 0}
-  color2: {r: 0.20784314, g: 0.7176471, b: 0.4745098, a: 0}
-  color3: {r: 1, g: 0.00000011126201, b: 0, a: 1}
+  color0: {r: 0.26666668, g: 0.003921569, b: 0.32941177, a: 1}
+  color1: {r: 0.19215687, g: 0.40784314, b: 0.5568628, a: 1}
+  color2: {r: 0.20784314, g: 0.7176471, b: 0.4745098, a: 1}
+  color3: {r: 0.99215686, g: 0.90588236, b: 0.14509805, a: 1}
 --- !u!114 &1236113283
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -46,6 +46,9 @@ public class PlotView2D : MonoBehaviour
     private Vector3    savedCamPos;
     private Quaternion savedCamRot;
 
+    private GameObject sunObject;
+    private GameObject sagAObject;
+
     public bool InPlotMode => inPlotMode;
 
     // -------------------------------------------------------------------------
@@ -132,6 +135,8 @@ public class PlotView2D : MonoBehaviour
         Cursor.lockState       = CursorLockMode.None;
         Cursor.visible         = true;
         cameraMovement.enabled = false;
+
+        HideSceneObjects();
 
         Transform clusterTf = starPlotter.transform.Find(cluster);
         if (clusterTf == null) { CleanupPlotMode(); yield break; }
@@ -235,7 +240,54 @@ public class PlotView2D : MonoBehaviour
         axisXDropdown.gameObject.SetActive(true);
         axisYDropdown.gameObject.SetActive(true);
         enterPlotButton.gameObject.SetActive(true);
+        ShowSceneObjects();
         // Info panel remains open — user can see the cluster data and re-enter plot mode.
+    }
+
+    // -------------------------------------------------------------------------
+    // Scene object visibility
+    // -------------------------------------------------------------------------
+
+    private void HideSceneObjects()
+    {
+        if (sunObject == null) sunObject = GameObject.Find("Sun");
+        if (sagAObject == null) sagAObject = GameObject.Find("Sagittarius A");
+
+        foreach (Transform child in starPlotter.transform)
+        {
+            if (child.name == targetCluster)
+            {
+                // Only disable the renderer — SetActive(false) would also hide the star children.
+                Renderer r = child.GetComponent<Renderer>();
+                if (r != null) r.enabled = false;
+            }
+            else
+            {
+                child.gameObject.SetActive(false);
+            }
+        }
+
+        if (sunObject != null) sunObject.SetActive(false);
+        if (sagAObject != null) sagAObject.SetActive(false);
+    }
+
+    private void ShowSceneObjects()
+    {
+        foreach (Transform child in starPlotter.transform)
+        {
+            if (child.name == targetCluster)
+            {
+                Renderer r = child.GetComponent<Renderer>();
+                if (r != null) r.enabled = true;
+            }
+            else
+            {
+                child.gameObject.SetActive(true);
+            }
+        }
+
+        if (sunObject != null) sunObject.SetActive(true);
+        if (sagAObject != null) sagAObject.SetActive(true);
     }
 
     // -------------------------------------------------------------------------
