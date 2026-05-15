@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 
 public class Movement : MonoBehaviour
@@ -11,6 +12,13 @@ public class Movement : MonoBehaviour
     public float fastZoomSensitivity = 50.0f;
 
     private bool looking = false;
+    private POINT savedCursorPos;
+
+    [DllImport("user32.dll")] static extern bool GetCursorPos(out POINT pt);
+    [DllImport("user32.dll")] static extern bool SetCursorPos(int X, int Y);
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct POINT { public int X; public int Y; }
     private void Awake()
     {
         fastMovementSpeed = movementSpeed * 2f;
@@ -20,6 +28,7 @@ public class Movement : MonoBehaviour
         // Toggle looking mode with the right mouse button
         if (Input.GetMouseButtonDown(1))
         {
+            GetCursorPos(out savedCursorPos);
             looking = true;
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
@@ -29,6 +38,7 @@ public class Movement : MonoBehaviour
             looking = false;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
+            SetCursorPos(savedCursorPos.X, savedCursorPos.Y);
         }
 
         // Handle movement

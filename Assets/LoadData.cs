@@ -24,7 +24,12 @@ public class LoadData : MonoBehaviour
     private Dictionary<string, List<float>> bByCluster           = new Dictionary<string, List<float>>();
     private Dictionary<string, List<float>> releaseTimeByCluster = new Dictionary<string, List<float>>();
 
-    public Dictionary<string, Vector3> clusterPositions = new Dictionary<string, Vector3>();
+    public Dictionary<string, Vector3> clusterPositions          = new Dictionary<string, Vector3>();
+    public Dictionary<string, float>   clusterRsun               = new Dictionary<string, float>();
+    public Dictionary<string, float>   clusterRGC                = new Dictionary<string, float>();
+    public Dictionary<string, float>   clusterRV                 = new Dictionary<string, float>();
+    public Dictionary<string, float>   clusterMass               = new Dictionary<string, float>();
+    public Dictionary<string, float>   clusterAge                = new Dictionary<string, float>();
 
     // Byte-range index into StreamingAssets/allStars.csv
     private string starsCsvPath;
@@ -256,6 +261,8 @@ public class LoadData : MonoBehaviour
             if (columns.Length > 1 && columns[1].Trim().Equals("RA", StringComparison.OrdinalIgnoreCase))
                 continue;
 
+            if (columns.Length < 31) continue; // need up to col 30 (Age)
+
             string clusterName = columns[0].Trim();
 
             float posX = float.Parse(columns[14]);
@@ -263,6 +270,12 @@ public class LoadData : MonoBehaviour
             float posZ = float.Parse(columns[16]);
 
             clusterPositions.Add(clusterName, new Vector3(posX, posY, posZ));
+
+            clusterRsun[clusterName] = float.Parse(columns[5]);
+            clusterRGC[clusterName]  = float.Parse(columns[7]);
+            clusterRV[clusterName]   = float.Parse(columns[8]);
+            clusterMass[clusterName] = float.Parse(columns[19]);
+            clusterAge[clusterName]  = float.Parse(columns[30]);
         }
     }
 }

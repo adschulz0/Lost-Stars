@@ -8,6 +8,14 @@ public class Elements : MonoBehaviour
     public GameObject clusterInfoPanel;
     public TextMeshProUGUI clusterName;
 
+    [Header("Cluster Info Fields")]
+    public TextMeshProUGUI infoDistFromSun;
+    public TextMeshProUGUI infoGalactocentricDist;
+    public TextMeshProUGUI infoRadialVelocity;
+    public TextMeshProUGUI infoMass;
+    public TextMeshProUGUI infoAge;
+    public TextMeshProUGUI infoMore;
+
     // Start is called before the first frame update
     void Start()
     {
