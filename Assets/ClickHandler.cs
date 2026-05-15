@@ -22,6 +22,7 @@ public class ClickHandler : MonoBehaviour
 
     private StarPlotter starPlotter;
     private LoadData loadData;
+    private PlotView2D plotView2D;
     private GameObject canvasWorldSpace;
 
     public bool clicked;
@@ -33,7 +34,8 @@ public class ClickHandler : MonoBehaviour
         clusterName = scr_elements.clusterName;
 
         starPlotter = FindObjectOfType<StarPlotter>();
-        loadData = starPlotter.loadData;
+        loadData    = starPlotter.loadData;
+        plotView2D  = FindObjectOfType<PlotView2D>();
 
         canvasWorldSpace = GameObject.Find("Canvas World Space");
         clusterNameText = canvasWorldSpace.GetComponentInChildren<Text>();
@@ -113,14 +115,15 @@ public class ClickHandler : MonoBehaviour
             starPlotter.PlotStarsForCluster(gameObject.name);
             starsInstantiated = true;
             starsVisible = true;
+            plotView2D?.NotifyClusterClicked(gameObject.name);
         }
         else
         {
             starsVisible = !starsVisible;
             foreach (Transform child in transform)
-            {
                 child.gameObject.SetActive(starsVisible);
-            }
+            if (starsVisible)
+                plotView2D?.NotifyClusterClicked(gameObject.name);
         }
     }
 
