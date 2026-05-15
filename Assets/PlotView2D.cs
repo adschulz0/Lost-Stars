@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;
 
@@ -12,12 +13,14 @@ public class PlotView2D : MonoBehaviour
     public Movement    cameraMovement;
     public Camera      mainCamera;
 
-    [Header("Plot Panel UI")]
-    public GameObject  plotPanel;
+    [Header("Info Panel (shared with cluster data)")]
+    public GameObject infoPanel;
+
+    [Header("Plot Controls (children of info panel)")]
     public TMP_Dropdown axisXDropdown;
     public TMP_Dropdown axisYDropdown;
-    public Button      enterPlotButton;
-    public Button      backButton;
+    public Button       enterPlotButton;
+    public Button       backButton;
 
     [Header("Plot Settings")]
     public float plotHalfExtent = 500f;
@@ -33,19 +36,23 @@ public class PlotView2D : MonoBehaviour
         "RA", "Dec", "Helio_Dist", "RV", "pm_ra", "pm_dec", "l", "b", "Release_Time"
     };
 
-    private string  targetCluster;
-    private bool    inPlotMode;
+    private string    targetCluster;
+    private bool      inPlotMode;
     private Coroutine activeCoroutine;
 
-    private readonly List<GameObject>       axisObjects       = new List<GameObject>();
+    private readonly List<GameObject>         axisObjects       = new List<GameObject>();
     private readonly Dictionary<int, Vector3> originalPositions = new Dictionary<int, Vector3>();
 
     private Vector3    savedCamPos;
     private Quaternion savedCamRot;
 
+    public bool InPlotMode => inPlotMode;
+
+    // -------------------------------------------------------------------------
+
     void Start()
     {
-        plotPanel.SetActive(false);
+        infoPanel.SetActive(false);
         backButton.gameObject.SetActive(false);
 
         axisXDropdown.ClearOptions();
@@ -59,12 +66,30 @@ public class PlotView2D : MonoBehaviour
         backButton.onClick.AddListener(OnBack);
     }
 
-    // Called by ClickHandler when a cluster's stars become visible.
-    public void NotifyClusterClicked(string clusterName)
+    void Update()
+    {
+        if (inPlotMode) return;
+        if (!Input.GetMouseButtonDown(0)) return;
+
+        // Let UI clicks (buttons, dropdowns) pass through without closing the panel.
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+
+        // If the click didn't land on a cluster collider, close the panel.
+        Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
+        if (!Physics.Raycast(ray, out RaycastHit hit) ||
+            hit.collider == null ||
+            hit.collider.GetComponent<ClickHandler>() == null)
+        {
+            infoPanel.SetActive(false);
+            targetCluster = null;
+        }
+    }
+
+    // Called by ClickHandler when a cluster is clicked.
+    public void SetTargetCluster(string clusterName)
     {
         if (inPlotMode) return;
         targetCluster = clusterName;
-        plotPanel.SetActive(true);
     }
 
     // -------------------------------------------------------------------------
@@ -74,8 +99,8 @@ public class PlotView2D : MonoBehaviour
         if (string.IsNullOrEmpty(targetCluster)) return;
         if (!loadData.xByCluster.ContainsKey(targetCluster)) return;
 
-        string xCol  = AxisColumns[axisXDropdown.value];
-        string yCol  = AxisColumns[axisYDropdown.value];
+        string      xCol  = AxisColumns[axisXDropdown.value];
+        string      yCol  = AxisColumns[axisYDropdown.value];
         List<float> dataX = loadData.GetColumnData(targetCluster, xCol);
         List<float> dataY = loadData.GetColumnData(targetCluster, yCol);
         if (dataX == null || dataY == null || dataX.Count == 0) return;
@@ -97,10 +122,15 @@ public class PlotView2D : MonoBehaviour
                                   string xCol, string yCol)
     {
         inPlotMode = true;
-        plotPanel.SetActive(false);
+
+        // Within the panel, swap plot controls for the back button.
+        axisXDropdown.gameObject.SetActive(false);
+        axisYDropdown.gameObject.SetActive(false);
+        enterPlotButton.gameObject.SetActive(false);
         backButton.gameObject.SetActive(true);
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible   = true;
+
+        Cursor.lockState       = CursorLockMode.None;
+        Cursor.visible         = true;
         cameraMovement.enabled = false;
 
         Transform clusterTf = starPlotter.transform.Find(cluster);
@@ -130,7 +160,7 @@ public class PlotView2D : MonoBehaviour
                                 0f);
         }
 
-        // Camera at -Z looking along +Z so TMP text (front faces -Z) is readable.
+        // Camera at -Z looking along +Z so TMP world-space text (front faces -Z) is readable.
         float      camDist   = plotHalfExtent / Mathf.Tan(mainCamera.fieldOfView * 0.5f * Mathf.Deg2Rad) * 1.4f;
         Vector3    tgtCamPos = new Vector3(0f, 0f, -camDist);
         Quaternion tgtCamRot = Quaternion.identity;
@@ -202,8 +232,10 @@ public class PlotView2D : MonoBehaviour
         inPlotMode             = false;
         cameraMovement.enabled = true;
         backButton.gameObject.SetActive(false);
-        if (!string.IsNullOrEmpty(targetCluster))
-            plotPanel.SetActive(true);
+        axisXDropdown.gameObject.SetActive(true);
+        axisYDropdown.gameObject.SetActive(true);
+        enterPlotButton.gameObject.SetActive(true);
+        // Info panel remains open — user can see the cluster data and re-enter plot mode.
     }
 
     // -------------------------------------------------------------------------
@@ -213,13 +245,12 @@ public class PlotView2D : MonoBehaviour
     private void DrawAxes(float minX, float maxX, float minY, float maxY,
                            string xLabel, string yLabel)
     {
-        float h  = plotHalfExtent;
-        float tl = tickLength;
-        float gap = tl + 10f; // space between tick end and label start
+        float h   = plotHalfExtent;
+        float tl  = tickLength;
+        float gap = tl + 10f;
 
-        // Main axis lines
-        CreateLine(new Vector3(-h, -h, 0f), new Vector3(h, -h, 0f), axisLineWidth, "XAxis");
-        CreateLine(new Vector3(-h, -h, 0f), new Vector3(-h, h, 0f), axisLineWidth, "YAxis");
+        CreateLine(new Vector3(-h, -h, 0f), new Vector3(h,  -h, 0f), axisLineWidth, "XAxis");
+        CreateLine(new Vector3(-h, -h, 0f), new Vector3(-h,  h, 0f), axisLineWidth, "YAxis");
 
         for (int i = 0; i <= tickCount; i++)
         {
@@ -229,14 +260,12 @@ public class PlotView2D : MonoBehaviour
             float xv   = Mathf.Lerp(minX, maxX, frac);
             float yv   = Mathf.Lerp(minY, maxY, frac);
 
-            // X-axis tick + label below
             CreateLine(new Vector3(xw, -h, 0f), new Vector3(xw, -h - tl, 0f),
                        axisLineWidth * 0.5f, $"XTick{i}");
             CreateLabel(xv.ToString("G4"),
                         new Vector3(xw, -h - tl - gap, 0f),
                         labelFontSize, TextAlignmentOptions.Center);
 
-            // Y-axis tick + label to the left
             CreateLine(new Vector3(-h, yw, 0f), new Vector3(-h - tl, yw, 0f),
                        axisLineWidth * 0.5f, $"YTick{i}");
             CreateLabel(yv.ToString("G4"),
@@ -244,12 +273,10 @@ public class PlotView2D : MonoBehaviour
                         labelFontSize, TextAlignmentOptions.Right);
         }
 
-        // Axis titles
         CreateLabel(xLabel,
                     new Vector3(0f, -h - tl - gap * 5f, 0f),
                     titleFontSize, TextAlignmentOptions.Center);
 
-        // Y title rotated 90° so it reads bottom-to-top
         var yTitleGo = new GameObject("PlotLabel_YTitle");
         axisObjects.Add(yTitleGo);
         var yTmp = yTitleGo.AddComponent<TextMeshPro>();
