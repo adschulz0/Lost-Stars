@@ -24,6 +24,8 @@ public class ClickHandler : MonoBehaviour
     private Movement cameraMovement;
     private GameObject canvasWorldSpace;
 
+    private Coroutine revealCoroutine;
+
     void Start()
     {
         scr_elements = GameObject.Find("Manager").GetComponent<Elements>();
@@ -91,7 +93,6 @@ public class ClickHandler : MonoBehaviour
 
             infoPanel.SetActive(true);
             plotView2D?.SetTargetCluster(name);
-            cameraMovement?.LerpToCluster(gameObject.transform.position);
         }
 
         if (!starsInstantiated)
@@ -99,19 +100,85 @@ public class ClickHandler : MonoBehaviour
             starPlotter.PlotStarsForCluster(gameObject.name);
             starsInstantiated = true;
             starsVisible = true;
+            if (plotView2D == null || !plotView2D.InPlotMode)
+                cameraMovement?.LerpToCluster(gameObject.transform.position);
+            // Stars are spawned active by StarPlotter; hide them all first, then reveal gradually.
+            foreach (Transform child in transform)
+                child.gameObject.SetActive(false);
+            StartReveal();
         }
         else
         {
             starsVisible = !starsVisible;
-            foreach (Transform child in transform)
-                child.gameObject.SetActive(starsVisible);
-
-            if (!starsVisible &&
-                (plotView2D == null || !plotView2D.InPlotMode) &&
-                clusterName.text == gameObject.name)
+            if (starsVisible)
             {
-                infoPanel.SetActive(false);
+                if (plotView2D == null || !plotView2D.InPlotMode)
+                    cameraMovement?.LerpToCluster(gameObject.transform.position);
+                StartReveal();
+            }
+            else
+            {
+                if (revealCoroutine != null)
+                {
+                    StopCoroutine(revealCoroutine);
+                    revealCoroutine = null;
+                }
+                foreach (Transform child in transform)
+                    child.gameObject.SetActive(false);
+
+                if ((plotView2D == null || !plotView2D.InPlotMode) &&
+                    clusterName.text == gameObject.name)
+                {
+                    infoPanel.SetActive(false);
+                }
             }
         }
+    }
+
+    private void StartReveal()
+    {
+        if (revealCoroutine != null) StopCoroutine(revealCoroutine);
+        revealCoroutine = StartCoroutine(RevealStars());
+    }
+
+    private IEnumerator RevealStars()
+    {
+        var stars = new List<Transform>();
+        foreach (Transform child in transform)
+            stars.Add(child);
+
+        if (stars.Count == 0) { revealCoroutine = null; yield break; }
+
+        // Fisher-Yates shuffle
+        for (int i = stars.Count - 1; i > 0; i--)
+        {
+            int j = Random.Range(0, i + 1);
+            (stars[i], stars[j]) = (stars[j], stars[i]);
+        }
+
+        // Star i is scheduled to appear at elapsed time i * (2 / n).
+        // Star 0 appears immediately; all stars appear within 2 seconds.
+        int   n       = stars.Count;
+        float elapsed = 0f;
+        int   next    = 0;
+
+        while (next < n)
+        {
+            if (!starsVisible) yield break;
+
+            while (next < n && elapsed >= (float)next * 2f / n)
+            {
+                stars[next].gameObject.SetActive(true);
+                next++;
+            }
+
+            if (next < n)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+        }
+
+        revealCoroutine = null;
     }
 }
