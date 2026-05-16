@@ -114,12 +114,14 @@ public class StarPlotter : MonoBehaviour
         Vector3 sunPosVector = new Vector3(sunPos[0], sunPos[1], sunPos[2]);
         GameObject sun = Instantiate(sunPrefab,  sunPosVector * scale, Quaternion.identity);
         sun.name = "Sun";
+        sun.transform.SetParent(transform);
     }
 
     void InstantGalaxyCenter()
     {
         GameObject sagittariusA = Instantiate(galaxyCenterPrefab, Vector3.zero * scale, Quaternion.identity);
         sagittariusA.name = "Sagittarius A";
+        sagittariusA.transform.SetParent(transform);
     }
     
 }
