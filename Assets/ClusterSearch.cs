@@ -14,12 +14,14 @@ public class ClusterSearch : MonoBehaviour
     private void Start()
     {
         searchInputField.onValueChanged.AddListener(OnSearch);
+        searchInputField.onEndEdit.AddListener(OnEndEdit);
         cameraMovement = Camera.main?.GetComponent<Movement>();
     }
 
-    private void Update()
+    // onEndEdit fires synchronously on the same frame as the key press, so
+    // GetKeyDown is still valid here even though isFocused has already cleared.
+    private void OnEndEdit(string _)
     {
-        if (!searchInputField.isFocused) return;
         if (!Input.GetKeyDown(KeyCode.Return) && !Input.GetKeyDown(KeyCode.KeypadEnter)) return;
         if (plotView2D != null && plotView2D.InPlotMode) return;
 
@@ -28,6 +30,7 @@ public class ClusterSearch : MonoBehaviour
         foreach (Transform cluster in manager.transform)
         {
             if (!cluster.gameObject.activeSelf) continue;
+            if (cluster.GetComponent<ClickHandler>() == null) continue;
             sole = cluster;
             if (++visible > 1) break;
         }

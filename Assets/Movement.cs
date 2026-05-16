@@ -34,7 +34,7 @@ public class Movement : MonoBehaviour
     public void LerpToCluster(Vector3 clusterWorldPos)
     {
         Vector3 dir = transform.position - clusterWorldPos;
-        if (dir.magnitude <= clusterViewDistance) return;
+        if (dir.sqrMagnitude < 0.001f) dir = Vector3.back;
 
         Vector3    targetPos = clusterWorldPos + dir.normalized * clusterViewDistance;
         Quaternion targetRot = Quaternion.LookRotation(clusterWorldPos - targetPos);

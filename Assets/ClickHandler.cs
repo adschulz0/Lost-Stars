@@ -105,6 +105,13 @@ public class ClickHandler : MonoBehaviour
             starsVisible = !starsVisible;
             foreach (Transform child in transform)
                 child.gameObject.SetActive(starsVisible);
+
+            if (!starsVisible &&
+                (plotView2D == null || !plotView2D.InPlotMode) &&
+                clusterName.text == gameObject.name)
+            {
+                infoPanel.SetActive(false);
+            }
         }
     }
 }
