@@ -1244,7 +1244,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Enter text...
+  m_Text: Search...
 --- !u!222 &274994751
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -3531,7 +3531,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.745283, g: 0.745283, b: 0.745283, a: 0}
+  m_BackGroundColor: {r: 0.8113208, g: 0.8113208, b: 0.5931827, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -3603,6 +3603,7 @@ MonoBehaviour:
   freeLookSensitivity: 3
   zoomSensitivity: 10
   fastZoomSensitivity: 50
+  clusterViewDistance: 1000
 --- !u!1 &1113525850
 GameObject:
   m_ObjectHideFlags: 0
@@ -4606,7 +4607,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   scale: 100
-  starSize: 3
+  starSize: 4
   loadData: {fileID: 713872186}
   starPrefab: {fileID: 6971920840885273673, guid: 257aadb15726f4a46a73cd9aeba6b8e4, type: 3}
   clusterPrefab: {fileID: 5640491737206951799, guid: b7feb40d6fe437343a425bf084280c7e, type: 3}
@@ -4682,13 +4683,15 @@ MonoBehaviour:
   axisYDropdown: {fileID: 1166739038}
   enterPlotButton: {fileID: 1881922600}
   backButton: {fileID: 1315830486}
+  hideAllStarsButton: {fileID: 47987433}
+  searchInputField: {fileID: 1113525852}
   plotHalfExtent: 500
   lerpDuration: 1.5
   tickCount: 8
   axisLineWidth: 3
   tickLength: 15
-  labelFontSize: 22
-  titleFontSize: 30
+  labelFontSize: 350
+  titleFontSize: 300
 --- !u!1 &1245196180
 GameObject:
   m_ObjectHideFlags: 0
@@ -5294,6 +5297,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 525d3f979af006a41a5c2d930b80e7f1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  infoPanel: {fileID: 518048110}
 --- !u!4 &1472461931
 Transform:
   m_ObjectHideFlags: 0
@@ -6513,6 +6517,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   searchInputField: {fileID: 1113525852}
   manager: {fileID: 1236113277}
+  plotView2D: {fileID: 1236113283}
 --- !u!1 &1881922598
 GameObject:
   m_ObjectHideFlags: 0

@@ -5,26 +5,48 @@ using UnityEngine.UI;
 
 public class ClusterSearch : MonoBehaviour
 {
-    public InputField searchInputField; // Reference to the Input Field
-    public GameObject manager; // Reference to the Manager GameObject
+    public InputField searchInputField;
+    public GameObject manager;
+    public PlotView2D plotView2D;
+
+    private Movement cameraMovement;
 
     private void Start()
     {
-        // Assign the OnValueChanged event to call the OnSearch method
         searchInputField.onValueChanged.AddListener(OnSearch);
+        cameraMovement = Camera.main?.GetComponent<Movement>();
+    }
+
+    private void Update()
+    {
+        if (!searchInputField.isFocused) return;
+        if (!Input.GetKeyDown(KeyCode.Return) && !Input.GetKeyDown(KeyCode.KeypadEnter)) return;
+        if (plotView2D != null && plotView2D.InPlotMode) return;
+
+        Transform sole    = null;
+        int       visible = 0;
+        foreach (Transform cluster in manager.transform)
+        {
+            if (!cluster.gameObject.activeSelf) continue;
+            sole = cluster;
+            if (++visible > 1) break;
+        }
+
+        if (visible == 1)
+            cameraMovement?.LerpToCluster(sole.position);
     }
 
     private void OnSearch(string searchQuery)
     {
         searchQuery = searchQuery.ToLower();
 
-        // Loop through all clusters
         foreach (Transform cluster in manager.transform)
         {
             bool clusterMatches = cluster.name.ToLower().Contains(searchQuery);
-
-            // Set the cluster active or inactive based on search match
             cluster.gameObject.SetActive(clusterMatches);
         }
+
+        if (plotView2D != null)
+            plotView2D.OnClusterSearchChanged(searchQuery);
     }
 }

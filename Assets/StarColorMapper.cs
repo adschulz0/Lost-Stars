@@ -30,20 +30,40 @@ public class StarColorMapper : MonoBehaviour
         "RA", "Dec", "Helio_Dist", "RV", "pm_ra", "pm_dec", "l", "b", "Release_Time"
     };
 
+    private static readonly Dictionary<string, string> ColumnUnits = new Dictionary<string, string>
+    {
+        { "RA",           "°"      },
+        { "Dec",          "°"      },
+        { "Helio_Dist",   "kpc"    },
+        { "RV",           "km/s"   },
+        { "pm_ra",        "mas/yr" },
+        { "pm_dec",       "mas/yr" },
+        { "l",            "°"      },
+        { "b",            "°"      },
+        { "Release_Time", "Myr"    },
+    };
+
+    private static string WithUnit(string col)
+    {
+        return ColumnUnits.TryGetValue(col, out string unit) ? $"{col} ({unit})" : col;
+    }
+
     private string selectedColumn = "Release_Time";
+    private bool   noneSelected   = false;
 
     // -------------------------------------------------------------------------
 
     void Start()
     {
         dropdown.ClearOptions();
-        dropdown.AddOptions(new List<string>(Columns));
+        var options = new List<string>(Columns) { "None" };
+        dropdown.AddOptions(options);
         dropdown.value = Array.IndexOf(Columns, "Release_Time");
         dropdown.RefreshShownValue();
         dropdown.onValueChanged.AddListener(OnDropdownChanged);
 
         BuildColorbarTexture();
-        colorbarTitle.text = selectedColumn;
+        colorbarTitle.text = WithUnit(selectedColumn);
         colorbarMin.text   = "—";
         colorbarMax.text   = "—";
     }
@@ -54,8 +74,16 @@ public class StarColorMapper : MonoBehaviour
 
     private void OnDropdownChanged(int index)
     {
-        selectedColumn   = Columns[index];
-        colorbarTitle.text = selectedColumn;
+        if (index >= Columns.Length)
+        {
+            noneSelected       = true;
+            colorbarTitle.text = "None";
+            PaintAllBlack();
+            return;
+        }
+        noneSelected       = false;
+        selectedColumn     = Columns[index];
+        colorbarTitle.text = WithUnit(selectedColumn);
         RecolorAllVisible();
     }
 
@@ -67,6 +95,12 @@ public class StarColorMapper : MonoBehaviour
     {
         Transform clusterTf = starPlotter.transform.Find(clusterName);
         if (clusterTf == null || clusterTf.childCount == 0) return;
+
+        if (noneSelected)
+        {
+            ApplyBlack(clusterTf);
+            return;
+        }
 
         List<float> data = loadData.GetColumnData(clusterName, selectedColumn);
         if (data == null || data.Count == 0) return;
@@ -104,6 +138,27 @@ public class StarColorMapper : MonoBehaviour
     // -------------------------------------------------------------------------
     // Core helpers
     // -------------------------------------------------------------------------
+
+    private void ApplyBlack(Transform clusterTf)
+    {
+        var mpb = new MaterialPropertyBlock();
+        foreach (Transform star in clusterTf)
+        {
+            Renderer r = star.GetComponent<Renderer>();
+            if (r == null) continue;
+            r.GetPropertyBlock(mpb);
+            mpb.SetColor("_Color", Color.black);
+            r.SetPropertyBlock(mpb);
+        }
+    }
+
+    private void PaintAllBlack()
+    {
+        foreach (Transform clusterTf in starPlotter.transform)
+            ApplyBlack(clusterTf);
+        colorbarMin.text = "—";
+        colorbarMax.text = "—";
+    }
 
     private void ApplyColors(Transform clusterTf, List<float> data, float min, float max)
     {
@@ -144,6 +199,8 @@ public class StarColorMapper : MonoBehaviour
     // Compute global min/max across all clusters that have visible stars and update labels.
     private void UpdateColorbarRange()
     {
+        if (noneSelected) { colorbarMin.text = "—"; colorbarMax.text = "—"; return; }
+
         float globalMin = float.MaxValue;
         float globalMax = float.MinValue;
         bool  any       = false;
@@ -163,8 +220,9 @@ public class StarColorMapper : MonoBehaviour
             any = true;
         }
 
-        colorbarMin.text = any ? globalMin.ToString("F2") : "—";
-        colorbarMax.text = any ? globalMax.ToString("F2") : "—";
+        string unitSuffix = ColumnUnits.TryGetValue(selectedColumn, out string u) ? " " + u : "";
+        colorbarMin.text = any ? globalMin.ToString("F2") + unitSuffix : "—";
+        colorbarMax.text = any ? globalMax.ToString("F2") + unitSuffix : "—";
     }
 
     // -------------------------------------------------------------------------

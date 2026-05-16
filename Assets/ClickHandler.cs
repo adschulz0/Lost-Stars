@@ -21,6 +21,7 @@ public class ClickHandler : MonoBehaviour
     private StarPlotter starPlotter;
     private LoadData loadData;
     private PlotView2D plotView2D;
+    private Movement cameraMovement;
     private GameObject canvasWorldSpace;
 
     void Start()
@@ -29,9 +30,10 @@ public class ClickHandler : MonoBehaviour
         infoPanel    = scr_elements.clusterInfoPanel;
         clusterName  = scr_elements.clusterName;
 
-        starPlotter = FindObjectOfType<StarPlotter>();
-        loadData    = starPlotter.loadData;
-        plotView2D  = FindObjectOfType<PlotView2D>();
+        starPlotter    = FindObjectOfType<StarPlotter>();
+        loadData       = starPlotter.loadData;
+        plotView2D     = FindObjectOfType<PlotView2D>();
+        cameraMovement = Camera.main?.GetComponent<Movement>();
 
         canvasWorldSpace = GameObject.Find("Canvas World Space");
         clusterNameText  = canvasWorldSpace.GetComponentInChildren<Text>();
@@ -89,6 +91,7 @@ public class ClickHandler : MonoBehaviour
 
             infoPanel.SetActive(true);
             plotView2D?.SetTargetCluster(name);
+            cameraMovement?.LerpToCluster(gameObject.transform.position);
         }
 
         if (!starsInstantiated)

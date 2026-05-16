@@ -4,9 +4,10 @@ using UnityEngine;
 
 public class Buttons : MonoBehaviour
 {
-    private GameObject managerObject; // Reference to the manager GameObject
+    public GameObject infoPanel;
 
-    // Start is called before the first frame update
+    private GameObject managerObject;
+
     void Start()
     {
         managerObject = GameObject.Find("Manager");
@@ -14,6 +15,8 @@ public class Buttons : MonoBehaviour
 
     public void HideAllStars()
     {
+        if (infoPanel != null) infoPanel.SetActive(false);
+
         if (managerObject != null)
         {
             // Iterate through all clusters under the manager GameObject

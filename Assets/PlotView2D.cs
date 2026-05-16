@@ -22,23 +22,47 @@ public class PlotView2D : MonoBehaviour
     public Button       enterPlotButton;
     public Button       backButton;
 
+    [Header("Other UI")]
+    public Button     hideAllStarsButton;
+    public InputField searchInputField;
+
     [Header("Plot Settings")]
     public float plotHalfExtent = 500f;
     public float lerpDuration   = 1.5f;
-    public int   tickCount      = 8;
+    public int   tickCount      = 4;
     public float axisLineWidth  = 3f;
     public float tickLength     = 15f;
-    public float labelFontSize  = 22f;
-    public float titleFontSize  = 30f;
+    public float labelFontSize  = 300f;
+    public float titleFontSize  = 300f;
 
     private static readonly string[] AxisColumns =
     {
         "RA", "Dec", "Helio_Dist", "RV", "pm_ra", "pm_dec", "l", "b", "Release_Time"
     };
 
+    private static readonly Dictionary<string, string> ColumnUnits = new Dictionary<string, string>
+    {
+        { "RA",           "°"      },
+        { "Dec",          "°"      },
+        { "Helio_Dist",   "kpc"    },
+        { "RV",           "km/s"   },
+        { "pm_ra",        "mas/yr" },
+        { "pm_dec",       "mas/yr" },
+        { "l",            "°"      },
+        { "b",            "°"      },
+        { "Release_Time", "Myr"    },
+    };
+
+    private static string WithUnit(string col)
+    {
+        return ColumnUnits.TryGetValue(col, out string unit) ? $"{col} ({unit})" : col;
+    }
+
     private string    targetCluster;
     private bool      inPlotMode;
     private Coroutine activeCoroutine;
+    private string    activePlotXCol;
+    private string    activePlotYCol;
 
     private readonly List<GameObject>         axisObjects       = new List<GameObject>();
     private readonly Dictionary<int, Vector3> originalPositions = new Dictionary<int, Vector3>();
@@ -95,6 +119,15 @@ public class PlotView2D : MonoBehaviour
         targetCluster = clusterName;
     }
 
+    // Called by ClusterSearch after each filter pass.
+    public void OnClusterSearchChanged(string query)
+    {
+        if (inPlotMode) return;
+        if (string.IsNullOrEmpty(targetCluster)) return;
+        bool clusterVisible = targetCluster.ToLower().Contains(query.ToLower());
+        infoPanel.SetActive(clusterVisible);
+    }
+
     // -------------------------------------------------------------------------
 
     private void OnEnterPlot()
@@ -102,14 +135,32 @@ public class PlotView2D : MonoBehaviour
         if (string.IsNullOrEmpty(targetCluster)) return;
         if (!loadData.xByCluster.ContainsKey(targetCluster)) return;
 
-        string      xCol  = AxisColumns[axisXDropdown.value];
-        string      yCol  = AxisColumns[axisYDropdown.value];
+        string xCol = AxisColumns[axisXDropdown.value];
+        string yCol = AxisColumns[axisYDropdown.value];
+
+        if (inPlotMode && xCol == activePlotXCol && yCol == activePlotYCol) return;
+
         List<float> dataX = loadData.GetColumnData(targetCluster, xCol);
         List<float> dataY = loadData.GetColumnData(targetCluster, yCol);
         if (dataX == null || dataY == null || dataX.Count == 0) return;
 
+        if (!inPlotMode)
+        {
+            // Restore all cluster dot visibility and clear the search filter.
+            foreach (Transform child in starPlotter.transform)
+                child.gameObject.SetActive(true);
+            if (searchInputField != null) searchInputField.text = "";
+        }
+
+        activePlotXCol = xCol;
+        activePlotYCol = yCol;
+
         if (activeCoroutine != null) StopCoroutine(activeCoroutine);
-        activeCoroutine = StartCoroutine(LerpTo2D(targetCluster, dataX, dataY, xCol, yCol));
+
+        if (inPlotMode)
+            activeCoroutine = StartCoroutine(RePlot(dataX, dataY, xCol, yCol));
+        else
+            activeCoroutine = StartCoroutine(LerpTo2D(targetCluster, dataX, dataY, xCol, yCol));
     }
 
     private void OnBack()
@@ -125,12 +176,9 @@ public class PlotView2D : MonoBehaviour
                                   string xCol, string yCol)
     {
         inPlotMode = true;
-
-        // Within the panel, swap plot controls for the back button.
-        axisXDropdown.gameObject.SetActive(false);
-        axisYDropdown.gameObject.SetActive(false);
-        enterPlotButton.gameObject.SetActive(false);
         backButton.gameObject.SetActive(true);
+        if (hideAllStarsButton != null) hideAllStarsButton.interactable = false;
+        if (searchInputField   != null) searchInputField.interactable   = false;
 
         Cursor.lockState       = CursorLockMode.None;
         Cursor.visible         = true;
@@ -232,16 +280,59 @@ public class PlotView2D : MonoBehaviour
         CleanupPlotMode();
     }
 
+    private IEnumerator RePlot(List<float> dataX, List<float> dataY, string xCol, string yCol)
+    {
+        ClearAxes();
+
+        Transform clusterTf = starPlotter.transform.Find(targetCluster);
+        if (clusterTf == null) yield break;
+
+        int n = Mathf.Min(clusterTf.childCount, Mathf.Min(dataX.Count, dataY.Count));
+
+        float minX, maxX, minY, maxY;
+        ComputeRange(dataX, n, out minX, out maxX);
+        ComputeRange(dataY, n, out minY, out maxY);
+
+        var from = new Vector3[n];
+        var to   = new Vector3[n];
+
+        for (int i = 0; i < n; i++)
+        {
+            from[i] = clusterTf.GetChild(i).position;
+
+            float nx = (maxX > minX) ? (dataX[i] - minX) / (maxX - minX) : 0.5f;
+            float ny = (maxY > minY) ? (dataY[i] - minY) / (maxY - minY) : 0.5f;
+            to[i] = new Vector3((nx - 0.5f) * plotHalfExtent * 2f,
+                                (ny - 0.5f) * plotHalfExtent * 2f,
+                                0f);
+        }
+
+        float elapsed = 0f;
+        while (elapsed < lerpDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.SmoothStep(0f, 1f, elapsed / lerpDuration);
+            for (int i = 0; i < n; i++)
+                clusterTf.GetChild(i).position = Vector3.Lerp(from[i], to[i], t);
+            yield return null;
+        }
+
+        for (int i = 0; i < n; i++)
+            clusterTf.GetChild(i).position = to[i];
+
+        DrawAxes(minX, maxX, minY, maxY, xCol, yCol);
+    }
+
     private void CleanupPlotMode()
     {
         inPlotMode             = false;
         cameraMovement.enabled = true;
         backButton.gameObject.SetActive(false);
-        axisXDropdown.gameObject.SetActive(true);
-        axisYDropdown.gameObject.SetActive(true);
-        enterPlotButton.gameObject.SetActive(true);
+        if (hideAllStarsButton != null) hideAllStarsButton.interactable = true;
+        if (searchInputField   != null) searchInputField.interactable   = true;
+        activePlotXCol = null;
+        activePlotYCol = null;
         ShowSceneObjects();
-        // Info panel remains open — user can see the cluster data and re-enter plot mode.
     }
 
     // -------------------------------------------------------------------------
@@ -314,29 +405,30 @@ public class PlotView2D : MonoBehaviour
 
             CreateLine(new Vector3(xw, -h, 0f), new Vector3(xw, -h - tl, 0f),
                        axisLineWidth * 0.5f, $"XTick{i}");
-            CreateLabel(xv.ToString("G4"),
+            CreateLabel(xv.ToString("F1"),
                         new Vector3(xw, -h - tl - gap, 0f),
                         labelFontSize, TextAlignmentOptions.Center);
 
             CreateLine(new Vector3(-h, yw, 0f), new Vector3(-h - tl, yw, 0f),
                        axisLineWidth * 0.5f, $"YTick{i}");
-            CreateLabel(yv.ToString("G4"),
-                        new Vector3(-h - tl - gap * 4f, yw, 0f),
+            CreateLabel(yv.ToString("F1"),
+                        new Vector3(-h - tl - gap * 2f, yw, 0f),
                         labelFontSize, TextAlignmentOptions.Right);
         }
 
-        CreateLabel(xLabel,
-                    new Vector3(0f, -h - tl - gap * 5f, 0f),
+        CreateLabel(WithUnit(xLabel),
+                    new Vector3(0f, -h - tl - gap * 3f, 0f),
                     titleFontSize, TextAlignmentOptions.Center);
 
         var yTitleGo = new GameObject("PlotLabel_YTitle");
         axisObjects.Add(yTitleGo);
         var yTmp = yTitleGo.AddComponent<TextMeshPro>();
-        yTmp.text      = yLabel;
-        yTmp.fontSize  = titleFontSize;
-        yTmp.alignment = TextAlignmentOptions.Center;
-        yTmp.color     = Color.white;
-        yTitleGo.transform.position = new Vector3(-h - tl - gap * 11f, 0f, 0f);
+        yTmp.text                  = WithUnit(yLabel);
+        yTmp.fontSize              = titleFontSize;
+        yTmp.alignment             = TextAlignmentOptions.Center;
+        yTmp.color                 = Color.white;
+        yTmp.enableWordWrapping    = false;
+        yTitleGo.transform.position = new Vector3(-h - tl - gap * 7f, 0f, 0f);
         yTitleGo.transform.rotation = Quaternion.Euler(0f, 0f, 90f);
     }
 
@@ -358,11 +450,12 @@ public class PlotView2D : MonoBehaviour
         var go = new GameObject("PlotLabel");
         axisObjects.Add(go);
         var tmp = go.AddComponent<TextMeshPro>();
-        tmp.text      = text;
-        tmp.fontSize  = fontSize;
-        tmp.alignment = alignment;
-        tmp.color     = Color.white;
-        go.transform.position = position;
+        tmp.text               = text;
+        tmp.fontSize           = fontSize;
+        tmp.alignment          = alignment;
+        tmp.color              = Color.white;
+        tmp.enableWordWrapping = false;
+        go.transform.position  = position;
     }
 
     private void ClearAxes()

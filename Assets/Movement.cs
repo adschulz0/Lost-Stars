@@ -10,21 +10,62 @@ public class Movement : MonoBehaviour
     public float freeLookSensitivity = 3.0f;
     public float zoomSensitivity = 10.0f;
     public float fastZoomSensitivity = 50.0f;
+    public float clusterViewDistance = 500f;
 
     private bool looking = false;
     private POINT savedCursorPos;
+
+    private bool      isLerping;
+    private Coroutine lerpCoroutine;
 
     [DllImport("user32.dll")] static extern bool GetCursorPos(out POINT pt);
     [DllImport("user32.dll")] static extern bool SetCursorPos(int X, int Y);
 
     [StructLayout(LayoutKind.Sequential)]
     struct POINT { public int X; public int Y; }
+
     private void Awake()
     {
         fastMovementSpeed = movementSpeed * 2f;
     }
+
+    // Lerps the camera to clusterViewDistance from clusterWorldPos, facing it.
+    // Does nothing if already within that distance.
+    public void LerpToCluster(Vector3 clusterWorldPos)
+    {
+        Vector3 dir = transform.position - clusterWorldPos;
+        if (dir.magnitude <= clusterViewDistance) return;
+
+        Vector3    targetPos = clusterWorldPos + dir.normalized * clusterViewDistance;
+        Quaternion targetRot = Quaternion.LookRotation(clusterWorldPos - targetPos);
+
+        if (lerpCoroutine != null) StopCoroutine(lerpCoroutine);
+        lerpCoroutine = StartCoroutine(LerpCoroutine(targetPos, targetRot));
+    }
+
+    private IEnumerator LerpCoroutine(Vector3 targetPos, Quaternion targetRot)
+    {
+        const float duration = 1.5f;
+        isLerping = true;
+        Vector3    startPos = transform.position;
+        Quaternion startRot = transform.rotation;
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.SmoothStep(0f, 1f, elapsed / duration);
+            transform.position = Vector3.Lerp(startPos, targetPos, t);
+            transform.rotation = Quaternion.Slerp(startRot, targetRot, t);
+            yield return null;
+        }
+        transform.SetPositionAndRotation(targetPos, targetRot);
+        isLerping     = false;
+        lerpCoroutine = null;
+    }
+
     void Update()
     {
+        if (isLerping) return;
         // Toggle looking mode with the right mouse button
         if (Input.GetMouseButtonDown(1))
         {
