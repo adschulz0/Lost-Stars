@@ -27,6 +27,8 @@ public class Movement : MonoBehaviour
     private void Awake()
     {
         fastMovementSpeed = movementSpeed * 2f;
+        transform.position = new Vector3(0f, 1f, 1000f);
+        transform.rotation = Quaternion.Euler(0f, 180f, 0f);
     }
 
     // Lerps the camera to clusterViewDistance from clusterWorldPos, facing it.

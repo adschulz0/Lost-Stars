@@ -205,8 +205,7 @@ public class PlotView2D : MonoBehaviour
         {
             Transform star = clusterTf.GetChild(i);
             int id = star.gameObject.GetInstanceID();
-            if (!originalPositions.ContainsKey(id))
-                originalPositions[id] = star.position;
+            originalPositions[id] = star.position;
             from[i] = star.position;
 
             float nx = (maxX > minX) ? (dataX[i] - minX) / (maxX - minX) : 0.5f;
@@ -216,10 +215,10 @@ public class PlotView2D : MonoBehaviour
                                 0f);
         }
 
-        // Camera at -Z looking along +Z so TMP world-space text (front faces -Z) is readable.
+        // Camera at +Z looking along -Z, consistent with the default starting orientation.
         float      camDist   = plotHalfExtent / Mathf.Tan(mainCamera.fieldOfView * 0.5f * Mathf.Deg2Rad) * 1.4f;
-        Vector3    tgtCamPos = new Vector3(0f, 0f, -camDist);
-        Quaternion tgtCamRot = Quaternion.identity;
+        Vector3    tgtCamPos = new Vector3(0f, 0f, camDist);
+        Quaternion tgtCamRot = Quaternion.Euler(0f, 180f, 0f);
 
         savedCamPos = mainCamera.transform.position;
         savedCamRot = mainCamera.transform.rotation;
@@ -395,8 +394,8 @@ public class PlotView2D : MonoBehaviour
         float tl  = tickLength;
         float gap = tl + 10f;
 
-        CreateLine(new Vector3(-h, -h, 0f), new Vector3(h,  -h, 0f), axisLineWidth, "XAxis");
-        CreateLine(new Vector3(-h, -h, 0f), new Vector3(-h,  h, 0f), axisLineWidth, "YAxis");
+        CreateLine(new Vector3(-h, -h, 0f), new Vector3( h, -h, 0f), axisLineWidth, "XAxis");
+        CreateLine(new Vector3( h, -h, 0f), new Vector3( h,  h, 0f), axisLineWidth, "YAxis");
 
         for (int i = 0; i <= tickCount; i++)
         {
@@ -412,10 +411,10 @@ public class PlotView2D : MonoBehaviour
                         new Vector3(xw, -h - tl - gap, 0f),
                         labelFontSize, TextAlignmentOptions.Center);
 
-            CreateLine(new Vector3(-h, yw, 0f), new Vector3(-h - tl, yw, 0f),
+            CreateLine(new Vector3(h, yw, 0f), new Vector3(h + tl, yw, 0f),
                        axisLineWidth * 0.5f, $"YTick{i}");
             CreateLabel(yv.ToString("F1"),
-                        new Vector3(-h - tl - gap * 2f, yw, 0f),
+                        new Vector3(h + tl + gap * 2f, yw, 0f),
                         labelFontSize, TextAlignmentOptions.Right);
         }
 
@@ -431,8 +430,8 @@ public class PlotView2D : MonoBehaviour
         yTmp.alignment             = TextAlignmentOptions.Center;
         yTmp.color                 = Color.white;
         yTmp.enableWordWrapping    = false;
-        yTitleGo.transform.position = new Vector3(-h - tl - gap * 7f, 0f, 0f);
-        yTitleGo.transform.rotation = Quaternion.Euler(0f, 0f, 90f);
+        yTitleGo.transform.position = new Vector3(h + tl + gap * 7f, 0f, 0f);
+        yTitleGo.transform.rotation = Quaternion.Euler(0f, 180f, 90f);
     }
 
     private void CreateLine(Vector3 start, Vector3 end, float width, string tag)
@@ -459,6 +458,7 @@ public class PlotView2D : MonoBehaviour
         tmp.color              = Color.white;
         tmp.enableWordWrapping = false;
         go.transform.position  = position;
+        go.transform.rotation  = Quaternion.Euler(0f, 180f, 0f);
     }
 
     private void ClearAxes()
