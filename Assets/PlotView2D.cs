@@ -191,8 +191,6 @@ public class PlotView2D : MonoBehaviour
 
         int n = Mathf.Min(clusterTf.childCount, Mathf.Min(dataX.Count, dataY.Count));
 
-        Quaternion rot = starPlotter.transform.rotation;
-
         float minX, maxX, minY, maxY;
         ComputeRange(dataX, n, out minX, out maxX);
         ComputeRange(dataY, n, out minY, out maxY);
@@ -210,15 +208,15 @@ public class PlotView2D : MonoBehaviour
 
             float nx = (maxX > minX) ? (dataX[i] - minX) / (maxX - minX) : 0.5f;
             float ny = (maxY > minY) ? (dataY[i] - minY) / (maxY - minY) : 0.5f;
-            to[i] = rot * new Vector3((nx - 0.5f) * plotHalfExtent * 2f,
-                                      (ny - 0.5f) * plotHalfExtent * 2f,
-                                      0f);
+            to[i] = new Vector3((nx - 0.5f) * plotHalfExtent * 2f,
+                                (ny - 0.5f) * plotHalfExtent * 2f,
+                                0f);
         }
 
-        // Camera behind the plot plane (along -Z in plot-local space) so TMP text is readable.
+        // Camera at -Z looking along +Z so TMP world-space text (front faces -Z) is readable.
         float      camDist   = plotHalfExtent / Mathf.Tan(mainCamera.fieldOfView * 0.5f * Mathf.Deg2Rad) * 1.4f;
-        Vector3    tgtCamPos = rot * new Vector3(0f, 0f, -camDist);
-        Quaternion tgtCamRot = rot;
+        Vector3    tgtCamPos = new Vector3(0f, 0f, -camDist);
+        Quaternion tgtCamRot = Quaternion.identity;
 
         savedCamPos = mainCamera.transform.position;
         savedCamRot = mainCamera.transform.rotation;
@@ -239,7 +237,7 @@ public class PlotView2D : MonoBehaviour
             clusterTf.GetChild(i).position = to[i];
         mainCamera.transform.SetPositionAndRotation(tgtCamPos, tgtCamRot);
 
-        DrawAxes(minX, maxX, minY, maxY, xCol, yCol, rot);
+        DrawAxes(minX, maxX, minY, maxY, xCol, yCol);
     }
 
     private IEnumerator LerpTo3D()
@@ -291,8 +289,6 @@ public class PlotView2D : MonoBehaviour
 
         int n = Mathf.Min(clusterTf.childCount, Mathf.Min(dataX.Count, dataY.Count));
 
-        Quaternion rot = starPlotter.transform.rotation;
-
         float minX, maxX, minY, maxY;
         ComputeRange(dataX, n, out minX, out maxX);
         ComputeRange(dataY, n, out minY, out maxY);
@@ -306,9 +302,9 @@ public class PlotView2D : MonoBehaviour
 
             float nx = (maxX > minX) ? (dataX[i] - minX) / (maxX - minX) : 0.5f;
             float ny = (maxY > minY) ? (dataY[i] - minY) / (maxY - minY) : 0.5f;
-            to[i] = rot * new Vector3((nx - 0.5f) * plotHalfExtent * 2f,
-                                      (ny - 0.5f) * plotHalfExtent * 2f,
-                                      0f);
+            to[i] = new Vector3((nx - 0.5f) * plotHalfExtent * 2f,
+                                (ny - 0.5f) * plotHalfExtent * 2f,
+                                0f);
         }
 
         float elapsed = 0f;
@@ -324,7 +320,7 @@ public class PlotView2D : MonoBehaviour
         for (int i = 0; i < n; i++)
             clusterTf.GetChild(i).position = to[i];
 
-        DrawAxes(minX, maxX, minY, maxY, xCol, yCol, rot);
+        DrawAxes(minX, maxX, minY, maxY, xCol, yCol);
     }
 
     private void CleanupPlotMode()
@@ -390,14 +386,14 @@ public class PlotView2D : MonoBehaviour
     // -------------------------------------------------------------------------
 
     private void DrawAxes(float minX, float maxX, float minY, float maxY,
-                           string xLabel, string yLabel, Quaternion rot)
+                           string xLabel, string yLabel)
     {
         float h   = plotHalfExtent;
         float tl  = tickLength;
         float gap = tl + 10f;
 
-        CreateLine(rot * new Vector3(-h, -h, 0f), rot * new Vector3(h,  -h, 0f), axisLineWidth, "XAxis");
-        CreateLine(rot * new Vector3(-h, -h, 0f), rot * new Vector3(-h,  h, 0f), axisLineWidth, "YAxis");
+        CreateLine(new Vector3(-h, -h, 0f), new Vector3(h,  -h, 0f), axisLineWidth, "XAxis");
+        CreateLine(new Vector3(-h, -h, 0f), new Vector3(-h,  h, 0f), axisLineWidth, "YAxis");
 
         for (int i = 0; i <= tickCount; i++)
         {
@@ -407,34 +403,33 @@ public class PlotView2D : MonoBehaviour
             float xv   = Mathf.Lerp(minX, maxX, frac);
             float yv   = Mathf.Lerp(minY, maxY, frac);
 
-            CreateLine(rot * new Vector3(xw, -h, 0f), rot * new Vector3(xw, -h - tl, 0f),
+            CreateLine(new Vector3(xw, -h, 0f), new Vector3(xw, -h - tl, 0f),
                        axisLineWidth * 0.5f, $"XTick{i}");
             CreateLabel(xv.ToString("F1"),
-                        rot * new Vector3(xw, -h - tl - gap, 0f),
-                        rot, labelFontSize, TextAlignmentOptions.Center);
+                        new Vector3(xw, -h - tl - gap, 0f),
+                        labelFontSize, TextAlignmentOptions.Center);
 
-            CreateLine(rot * new Vector3(-h, yw, 0f), rot * new Vector3(-h - tl, yw, 0f),
+            CreateLine(new Vector3(-h, yw, 0f), new Vector3(-h - tl, yw, 0f),
                        axisLineWidth * 0.5f, $"YTick{i}");
             CreateLabel(yv.ToString("F1"),
-                        rot * new Vector3(-h - tl - gap * 2f, yw, 0f),
-                        rot, labelFontSize, TextAlignmentOptions.Right);
+                        new Vector3(-h - tl - gap * 2f, yw, 0f),
+                        labelFontSize, TextAlignmentOptions.Right);
         }
 
         CreateLabel(WithUnit(xLabel),
-                    rot * new Vector3(0f, -h - tl - gap * 3f, 0f),
-                    rot, titleFontSize, TextAlignmentOptions.Center);
+                    new Vector3(0f, -h - tl - gap * 3f, 0f),
+                    titleFontSize, TextAlignmentOptions.Center);
 
         var yTitleGo = new GameObject("PlotLabel_YTitle");
         axisObjects.Add(yTitleGo);
         var yTmp = yTitleGo.AddComponent<TextMeshPro>();
-        yTmp.text               = WithUnit(yLabel);
-        yTmp.fontSize           = titleFontSize;
-        yTmp.alignment          = TextAlignmentOptions.Center;
-        yTmp.color              = Color.white;
-        yTmp.enableWordWrapping = false;
-        yTitleGo.transform.SetPositionAndRotation(
-            rot * new Vector3(-h - tl - gap * 7f, 0f, 0f),
-            rot * Quaternion.Euler(0f, 0f, 90f));
+        yTmp.text                  = WithUnit(yLabel);
+        yTmp.fontSize              = titleFontSize;
+        yTmp.alignment             = TextAlignmentOptions.Center;
+        yTmp.color                 = Color.white;
+        yTmp.enableWordWrapping    = false;
+        yTitleGo.transform.position = new Vector3(-h - tl - gap * 7f, 0f, 0f);
+        yTitleGo.transform.rotation = Quaternion.Euler(0f, 0f, 90f);
     }
 
     private void CreateLine(Vector3 start, Vector3 end, float width, string tag)
@@ -450,8 +445,7 @@ public class PlotView2D : MonoBehaviour
         lr.useWorldSpace = true;
     }
 
-    private void CreateLabel(string text, Vector3 position, Quaternion rotation,
-                              float fontSize, TextAlignmentOptions alignment)
+    private void CreateLabel(string text, Vector3 position, float fontSize, TextAlignmentOptions alignment)
     {
         var go = new GameObject("PlotLabel");
         axisObjects.Add(go);
@@ -461,7 +455,7 @@ public class PlotView2D : MonoBehaviour
         tmp.alignment          = alignment;
         tmp.color              = Color.white;
         tmp.enableWordWrapping = false;
-        go.transform.SetPositionAndRotation(position, rotation);
+        go.transform.position  = position;
     }
 
     private void ClearAxes()
