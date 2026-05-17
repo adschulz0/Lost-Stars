@@ -73,7 +73,7 @@ Attached to the Manager GameObject. Handles all GameObject instantiation.
 
 **On demand:** `PlotStarsForCluster(string name)` — called from `ClickHandler`. Triggers `LoadData.LoadStarsForCluster()`, then instantiates star prefabs as children of the cluster transform. Calls `StarColorMapper.ColorizeCluster()` when done.
 
-Star prefabs are parented to `transform.Find(clusterName)`, so the cluster dot GameObject is also the container for its stars. Position is negated in X: `new Vector3(-x, y, z) * scale`. This corrects a handedness difference between the CSV coordinate system and Unity.
+Star prefabs are parented to `transform.Find(clusterName)`, so the cluster dot GameObject is also the container for its stars. Individual star positions use raw CSV XYZ values multiplied by `scale`. Cluster dot positions are negated in X (`new Vector3(-x, y, z) * scale`) to correct a handedness difference between the CSV coordinate system and Unity.
 
 ### `ClickHandler.cs`
 Attached to every cluster prefab instance.
@@ -82,24 +82,26 @@ Attached to every cluster prefab instance.
 
 **Exit (`OnMouseExit`):** Resets highlight color and hides the world-space label. Never touches the info panel.
 
-**Click (`OnMouseDown`):** If not in 2D plot mode — populates the info panel (cluster name + Rsun, R_GC, RV, Mass, Age fields), calls `infoPanel.SetActive(true)`, and calls `PlotView2D.SetTargetCluster()`. Clicking a second cluster while the panel is open replaces the content without closing the panel. Independently of panel state — first click loads and shows stars (`PlotStarsForCluster`, sets `starsInstantiated = true`); subsequent clicks toggle star child visibility.
+**Click (`OnMouseDown`):** If not in 2D plot mode — populates the info panel (cluster name + Rsun, R_GC, RV, Mass, Age fields), calls `infoPanel.SetActive(true)`, and calls `PlotView2D.SetTargetCluster()`. Clicking a second cluster while the panel is open replaces the content without closing the panel. Independently of panel state — first click loads stars (`PlotStarsForCluster`, sets `starsInstantiated = true`), calls `cameraMovement.LerpToCluster()`, hides all children, then starts `StartReveal()`; subsequent clicks toggle star visibility (revealing via `StartReveal()` or hiding all children). When stars are toggled off and this cluster's name matches the displayed panel, the panel is also closed.
+
+**Star reveal (`RevealStars`):** Coroutine. Fisher-Yates shuffles the star list, then activates stars one by one over 2 seconds (star `i` appears at elapsed time `i * 2 / n`). Aborts early if `starsVisible` becomes false. The camera lerp to the cluster also triggers on re-show (toggle back on).
 
 **State:** `starsInstantiated`, `starsVisible` (read by `Buttons.cs`).
 
-**Closing the panel:** Handled by `PlotView2D.Update()` — a left click that misses all cluster colliders and isn't over UI closes the panel.
+**Closing the panel:** Primarily handled by `PlotView2D.Update()` — a left click that misses all cluster colliders and isn't over UI closes the panel. Also closed by this script when toggling stars off.
 
 ### `StarColorMapper.cs`
 Attached to the Manager GameObject. Colors stars by data column.
 
-**Startup:** Populates the TMP_Dropdown with column names, defaults to `Release_Time`, builds the colorbar texture.
+**Startup:** Populates the TMP_Dropdown with column names plus a "None" option, defaults to `Release_Time`, builds the colorbar texture.
 
-**When a cluster is clicked:** `ColorizeCluster(string name)` is called by `StarPlotter`. Fetches column data from `LoadData.GetColumnData()`, computes per-cluster min/max, applies colors via `MaterialPropertyBlock` (no material instance allocation). Updates the global colorbar range labels.
+**When a cluster is clicked:** `ColorizeCluster(string name)` is called by `StarPlotter`. Fetches column data from `LoadData.GetColumnData()`, computes per-cluster min/max, applies colors via `MaterialPropertyBlock` (no material instance allocation). Then calls `UpdateColorbarRange()` which recomputes global min/max across all visible clusters and updates the colorbar labels.
 
-**When dropdown changes:** `RecolorAllVisible()` recolors every cluster whose first child is active.
+**When dropdown changes:** `RecolorAllVisible()` recolors every cluster whose first child is active. Selecting "None" calls `PaintAllBlack()` instead, turning all stars black.
 
 **Gradient:** Four Inspector Color fields (`color0`–`color3`), defaulting to viridis keypoints. Colors with alpha = 0 are ignored, so 2–4 color gradients work automatically. `GradientColor(float t)` distributes active colors evenly across [0, 1] and linearly interpolates.
 
-**Colorbar:** A 1×256 `RawImage` texture built from `GradientColor`, with TMP labels for title, min, and max.
+**Colorbar:** A 1×256 `RawImage` texture built from `GradientColor`, with TMP labels for title (column name with unit, e.g. `"Release_Time (Myr)"`), min, and max. Min/max reflect the global range across all visible clusters.
 
 ### `Elements.cs`
 A plain data bag attached to the Manager GameObject. Holds references to all UI elements so other scripts don't need to do their own `GameObject.Find` calls for UI.
@@ -107,11 +109,13 @@ A plain data bag attached to the Manager GameObject. Holds references to all UI 
 Fields: `clusterInfoPanel`, `clusterName`, `infoDistFromSun`, `infoGalactocentricDist`, `infoRadialVelocity`, `infoMass`, `infoAge`, `infoMore`. All assigned in the Inspector.
 
 ### `Movement.cs`
-Attached to the Main Camera. WASD + QE movement, right-click drag to look.
+Attached to the Main Camera. WASD + QE/Space movement, right-click drag to look.
 
 Right-click behavior: saves absolute cursor position via `user32.dll GetCursorPos` on press, locks cursor and hides it, then on release restores cursor to the saved position via `SetCursorPos`. This prevents the cursor from snapping to center when exiting look mode.
 
-Speed: hold Shift for 2× movement and zoom speed. Disabled entirely (`enabled = false`) while in 2D plot mode.
+Speed: hold Shift for 2× movement and zoom speed. All manual input is blocked while `isLerping` is true or `enabled = false` (the latter set by `PlotView2D` when entering 2D mode).
+
+**`LerpToCluster(Vector3 clusterWorldPos)`:** Public method called by `ClickHandler` (on star show) and `ClusterSearch` (on Enter with a sole visible cluster). Positions the camera `clusterViewDistance` units away from the cluster along the current approach vector, facing the cluster, via a SmoothStep coroutine over 1.5 seconds. Sets `isLerping = true` during the lerp to block manual input.
 
 ### `PlotView2D.cs`
 Attached to the Manager GameObject. Controls 2D scatter-plot mode for a selected cluster.
@@ -122,21 +126,32 @@ Attached to the Manager GameObject. Controls 2D scatter-plot mode for a selected
 
 **Target cluster:** `SetTargetCluster(string name)` is called by `ClickHandler` on each cluster click; ignored while in plot mode. `InPlotMode` is a public read-only property used by `ClickHandler`.
 
-**Entering 2D mode (`OnEnterPlot`):** Validates that `targetCluster` has loaded star data. Reads two data columns, normalizes values to [0,1], computes 2D target positions `((nx-0.5)*2h, (ny-0.5)*2h, 0)` where `h = plotHalfExtent`. Calls `HideSceneObjects()`. Runs `LerpTo2D` coroutine: SmoothStep-lerps all stars and the camera simultaneously over `lerpDuration` seconds. Camera target is `(0, 0, -camDist)` with identity rotation (looking along +Z, so world-space TMP text facing -Z is readable). Saves original star world positions in a `Dictionary<int, Vector3>` keyed by instance ID on first entry. After lerp completes, draws world-space axis lines and labels.
+**Entering 2D mode (`OnEnterPlot`):** Validates that `targetCluster` has loaded star data. Reads two data columns, normalizes values to [0,1], computes 2D target positions `((nx-0.5)*2h, (ny-0.5)*2h, 0)` where `h = plotHalfExtent`. Before lerping: restores all cluster dot visibility and clears the search field. Calls `HideSceneObjects()`. Runs `LerpTo2D` coroutine: SmoothStep-lerps all stars and the camera simultaneously over `lerpDuration` seconds. Camera target is `(0, 0, -camDist)` (distance derived from FOV and `plotHalfExtent * 1.4`) with identity rotation (looking along +Z, so world-space TMP text facing -Z is readable). Saves original star world positions in a `Dictionary<int, Vector3>` keyed by instance ID on first entry. After lerp completes, draws world-space axis lines and labels. If called again while already in plot mode with different columns, runs `RePlot` instead (clears axes, lerps stars to new positions, redraws axes — no camera move).
+
+**`OnClusterSearchChanged(string query)`:** Called by `ClusterSearch` after each filter pass. While not in plot mode, hides or shows the info panel based on whether `targetCluster` matches the current query.
 
 **Hiding scene objects (`HideSceneObjects`):** All cluster dot GameObjects except the target cluster are hidden with `SetActive(false)`. The target cluster's dot `Renderer` is disabled rather than the whole GameObject (so its star children stay active for the plot). Sun and Sagittarius A are found by name (lazily cached) and hidden with `SetActive(false)`.
 
-**Exiting 2D mode (`OnBack`):** Destroys axis GameObjects, then runs `LerpTo3D` coroutine: lerps stars back to stored originals and camera back to saved transform. On completion, `CleanupPlotMode()` re-enables `Movement`, restores the Back→Enter button swap within the panel, and calls `ShowSceneObjects()` to restore all hidden objects. Info panel remains open.
+**Exiting 2D mode (`OnBack`):** Destroys axis GameObjects, then runs `LerpTo3D` coroutine: lerps stars back to stored originals and camera back to saved transform. On completion, `CleanupPlotMode()` re-enables `Movement`, restores interactability of `hideAllStarsButton` and `searchInputField`, restores the Back→Enter button swap within the panel, and calls `ShowSceneObjects()` to restore all hidden objects. Info panel remains open.
 
-**Axes:** World-space `LineRenderer` objects for axis lines and tick marks. World-space `TextMeshPro` objects for tick value labels (`G4` format) and axis titles (Y title rotated 90°). All tracked in `axisObjects` list and destroyed on exit.
+**Axes:** World-space `LineRenderer` objects for axis lines and tick marks. World-space `TextMeshPro` objects for tick value labels (`F1` format) and axis titles (Y title rotated 90°). All tracked in `axisObjects` list and destroyed on exit.
 
-**Inspector fields:** `loadData`, `starPlotter`, `cameraMovement`, `mainCamera`, `infoPanel`, `axisXDropdown`, `axisYDropdown`, `enterPlotButton`, `backButton`, `plotHalfExtent` (500), `lerpDuration` (1.5), `tickCount` (8), `axisLineWidth` (3), `tickLength` (15), `labelFontSize` (22), `titleFontSize` (30).
+**Inspector fields:** `loadData`, `starPlotter`, `cameraMovement`, `mainCamera`, `infoPanel`, `axisXDropdown`, `axisYDropdown`, `enterPlotButton`, `backButton`, `hideAllStarsButton` (optional), `searchInputField` (optional), `plotHalfExtent` (500), `lerpDuration` (1.5), `tickCount` (4), `axisLineWidth` (3), `tickLength` (15), `labelFontSize` (300), `titleFontSize` (300).
+
+### `SceneRotator.cs`
+Attached to a standalone `SceneRotator` GameObject in the scene root. Rotates the `StarPlotter` transform 90° around the Z axis per button press, cycling 0→90→180→270→0. The current step is tracked by a private `step` counter (resets to 0 on Play). On each call to `Rotate()`, a `LerpRotation` coroutine SmoothStep-lerps from the current rotation to the new target over 0.5 seconds. A new press while lerping re-targets from the current (mid-lerp) rotation so presses always feel responsive. `starPlotter` is found via `FindObjectOfType` in `Start()`.
+
+**In the scene:** A "Rotate" UI button in the bottom-right Canvas (above "Hide All Stars") has its onClick wired directly to this component's `Rotate()` method.
 
 ### `Buttons.cs`
-Attached to a UI button. `HideAllStars()` walks all cluster children of Manager, deactivates visible stars, and sets `ClickHandler.starsVisible = false`.
+Attached to a UI button. `HideAllStars()` closes the info panel, then walks all cluster children of Manager, deactivates visible stars, and sets `ClickHandler.starsVisible = false`.
 
 ### `ClusterSearch.cs`
-Attached to a UI InputField. `OnSearch(string query)` filters cluster GameObjects by name using `SetActive`, case-insensitive substring match.
+Attached to a UI InputField. Has references to `manager`, `plotView2D`, and `cameraMovement`.
+
+**`OnSearch(string query)`:** Filters cluster GameObjects under Manager by name using `SetActive`, case-insensitive substring match. Also calls `plotView2D.OnClusterSearchChanged(query)` so the info panel hides if the selected cluster no longer matches.
+
+**`OnEndEdit`:** Fires when the input field loses focus. If Enter/Return was pressed, not in plot mode, and exactly one cluster with a `ClickHandler` is currently visible, calls `cameraMovement.LerpToCluster()` on it to fly the camera to that cluster.
 
 ---
 
@@ -161,7 +176,7 @@ Custom Inspector for `StarColorMapper`. Draws all normal fields first, then a **
 - The "Canvas World Space" GameObject contains a legacy `Text` component used as a floating cluster name label in 3D space (shown on hover, hidden on mouse exit).
 - The info panel (starts inactive) is opened by clicking a cluster and closed by clicking empty space. It contains TMP fields wired to `Elements`, plus the 2D plot controls (axis X dropdown, axis Y dropdown, "2D Plot" button, "Back" button) as children below the data fields.
 - `StarColorMapper` requires `LoadData`, `StarPlotter`, a `TMP_Dropdown`, a `RawImage`, and three TMP labels assigned in the Inspector.
-- `PlotView2D` requires `LoadData`, `StarPlotter`, `Movement` (Main Camera), `Camera` (Main Camera), `infoPanel` (the cluster info panel), `axisXDropdown`, `axisYDropdown`, `enterPlotButton`, `backButton` — all assigned in the Inspector. The four controls are children of the info panel; `backButton` starts inactive.
+- `PlotView2D` requires `LoadData`, `StarPlotter`, `Movement` (Main Camera), `Camera` (Main Camera), `infoPanel` (the cluster info panel), `axisXDropdown`, `axisYDropdown`, `enterPlotButton`, `backButton` — all assigned in the Inspector. The four controls are children of the info panel; `backButton` starts inactive. `hideAllStarsButton` and `searchInputField` are optional references used to toggle interactability while in plot mode.
 
 ---
 

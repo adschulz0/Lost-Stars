@@ -37,11 +37,14 @@ public class PlotView2D : MonoBehaviour
 
     private static readonly string[] AxisColumns =
     {
-        "RA", "Dec", "Helio_Dist", "RV", "pm_ra", "pm_dec", "l", "b", "Release_Time"
+        "X", "Y", "Z", "RA", "Dec", "Helio_Dist", "RV", "pm_ra", "pm_dec", "l", "b", "Release_Time"
     };
 
     private static readonly Dictionary<string, string> ColumnUnits = new Dictionary<string, string>
     {
+        { "X",            "kpc"    },
+        { "Y",            "kpc"    },
+        { "Z",            "kpc"    },
         { "RA",           "°"      },
         { "Dec",          "°"      },
         { "Helio_Dist",   "kpc"    },

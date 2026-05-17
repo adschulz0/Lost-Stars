@@ -63,8 +63,8 @@ public class StarPlotter : MonoBehaviour
 
         for (int j = 0; j < xArray.Count; j++)
         {
-            Vector3 position = new Vector3(xArray[j], yArray[j], zArray[j]);
-            GameObject star = Instantiate(starPrefab, position * scale, Quaternion.identity);
+            Vector3 worldPos = transform.TransformPoint(new Vector3(xArray[j], yArray[j], zArray[j]) * scale);
+            GameObject star = Instantiate(starPrefab, worldPos, Quaternion.identity);
             star.transform.localScale *= starSize;
             star.transform.SetParent(transform.Find(clusterName));
         }
@@ -112,14 +112,16 @@ public class StarPlotter : MonoBehaviour
     void InstantSun(float[] sunPos)
     {
         Vector3 sunPosVector = new Vector3(sunPos[0], sunPos[1], sunPos[2]);
-        GameObject sun = Instantiate(sunPrefab,  sunPosVector * scale, Quaternion.identity);
+        GameObject sun = Instantiate(sunPrefab, sunPosVector * scale, Quaternion.identity);
         sun.name = "Sun";
+        sun.transform.SetParent(transform);
     }
 
     void InstantGalaxyCenter()
     {
-        GameObject sagittariusA = Instantiate(galaxyCenterPrefab, Vector3.zero * scale, Quaternion.identity);
+        GameObject sagittariusA = Instantiate(galaxyCenterPrefab, Vector3.zero, Quaternion.identity);
         sagittariusA.name = "Sagittarius A";
+        sagittariusA.transform.SetParent(transform);
     }
     
 }

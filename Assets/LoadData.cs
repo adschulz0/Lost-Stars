@@ -165,15 +165,18 @@ public class LoadData : MonoBehaviour
     {
         switch (column)
         {
-            case "RA":           return raByCluster.TryGetValue(clusterName,        out var ra)   ? ra   : null;
-            case "Dec":          return decByCluster.TryGetValue(clusterName,       out var dec)  ? dec  : null;
-            case "Helio_Dist":   return helioDistByCluster.TryGetValue(clusterName, out var hd)   ? hd   : null;
-            case "RV":           return rvByCluster.TryGetValue(clusterName,        out var rv)   ? rv   : null;
-            case "pm_ra":        return pm_raByCluster.TryGetValue(clusterName,     out var pmra) ? pmra : null;
-            case "pm_dec":       return pm_decByCluster.TryGetValue(clusterName,    out var pmdc) ? pmdc : null;
-            case "l":            return lByCluster.TryGetValue(clusterName,         out var l)    ? l    : null;
-            case "b":            return bByCluster.TryGetValue(clusterName,         out var b)    ? b    : null;
-            case "Release_Time": return releaseTimeByCluster.TryGetValue(clusterName, out var rt) ? rt   : null;
+            case "X":            return xByCluster.TryGetValue(clusterName,           out var x)    ? x    : null;
+            case "Y":            return yByCluster.TryGetValue(clusterName,           out var y)    ? y    : null;
+            case "Z":            return zByCluster.TryGetValue(clusterName,           out var z)    ? z    : null;
+            case "RA":           return raByCluster.TryGetValue(clusterName,          out var ra)   ? ra   : null;
+            case "Dec":          return decByCluster.TryGetValue(clusterName,         out var dec)  ? dec  : null;
+            case "Helio_Dist":   return helioDistByCluster.TryGetValue(clusterName,   out var hd)   ? hd   : null;
+            case "RV":           return rvByCluster.TryGetValue(clusterName,          out var rv)   ? rv   : null;
+            case "pm_ra":        return pm_raByCluster.TryGetValue(clusterName,       out var pmra) ? pmra : null;
+            case "pm_dec":       return pm_decByCluster.TryGetValue(clusterName,      out var pmdc) ? pmdc : null;
+            case "l":            return lByCluster.TryGetValue(clusterName,           out var l)    ? l    : null;
+            case "b":            return bByCluster.TryGetValue(clusterName,           out var b)    ? b    : null;
+            case "Release_Time": return releaseTimeByCluster.TryGetValue(clusterName, out var rt)   ? rt   : null;
             default:             return null;
         }
     }
