@@ -21,6 +21,8 @@ public class PlotView2D : MonoBehaviour
     public TMP_Dropdown axisYDropdown;
     public Button       enterPlotButton;
     public Button       backButton;
+    public Button       flipXButton;
+    public Button       flipYButton;
 
     [Header("Other UI")]
     public Button     hideAllStarsButton;
@@ -67,6 +69,9 @@ public class PlotView2D : MonoBehaviour
     private string    activePlotXCol;
     private string    activePlotYCol;
 
+    private bool flipX;
+    private bool flipY;
+
     private readonly List<GameObject>         axisObjects       = new List<GameObject>();
     private readonly Dictionary<int, Vector3> originalPositions = new Dictionary<int, Vector3>();
 
@@ -89,11 +94,13 @@ public class PlotView2D : MonoBehaviour
         axisYDropdown.ClearOptions();
         axisXDropdown.AddOptions(new List<string>(AxisColumns));
         axisYDropdown.AddOptions(new List<string>(AxisColumns));
-        axisXDropdown.value = 0; // RA
-        axisYDropdown.value = 1; // Dec
+        axisXDropdown.value = 0;
+        axisYDropdown.value = 1;
 
         enterPlotButton.onClick.AddListener(OnEnterPlot);
         backButton.onClick.AddListener(OnBack);
+        if (flipXButton != null) { flipXButton.onClick.AddListener(OnFlipX); flipXButton.gameObject.SetActive(false); }
+        if (flipYButton != null) { flipYButton.onClick.AddListener(OnFlipY); flipYButton.gameObject.SetActive(false); }
     }
 
     void Update()
@@ -143,6 +150,12 @@ public class PlotView2D : MonoBehaviour
 
         if (inPlotMode && xCol == activePlotXCol && yCol == activePlotYCol) return;
 
+        // Reset flips for every new/changed plot.
+        flipX = false;
+        flipY = false;
+        UpdateFlipVisual(flipXButton, false);
+        UpdateFlipVisual(flipYButton, false);
+
         List<float> dataX = loadData.GetColumnData(targetCluster, xCol);
         List<float> dataY = loadData.GetColumnData(targetCluster, yCol);
         if (dataX == null || dataY == null || dataX.Count == 0) return;
@@ -173,6 +186,42 @@ public class PlotView2D : MonoBehaviour
         activeCoroutine = StartCoroutine(LerpTo3D());
     }
 
+    private void OnFlipX()
+    {
+        flipX = !flipX;
+        UpdateFlipVisual(flipXButton, flipX);
+        if (inPlotMode) RefreshFlip();
+        EventSystem.current.SetSelectedGameObject(null);
+    }
+
+    private void OnFlipY()
+    {
+        flipY = !flipY;
+        UpdateFlipVisual(flipYButton, flipY);
+        if (inPlotMode) RefreshFlip();
+        EventSystem.current.SetSelectedGameObject(null);
+    }
+
+    private void RefreshFlip()
+    {
+        List<float> dataX = loadData.GetColumnData(targetCluster, activePlotXCol);
+        List<float> dataY = loadData.GetColumnData(targetCluster, activePlotYCol);
+        if (dataX == null || dataY == null) return;
+        if (activeCoroutine != null) StopCoroutine(activeCoroutine);
+        activeCoroutine = StartCoroutine(RePlot(dataX, dataY, activePlotXCol, activePlotYCol));
+    }
+
+    private static void UpdateFlipVisual(Button btn, bool active) { }
+
+    private void SetPlotControlsInteractable(bool interactable)
+    {
+        enterPlotButton.interactable          = interactable;
+        axisXDropdown.interactable            = interactable;
+        axisYDropdown.interactable            = interactable;
+        if (flipXButton != null) flipXButton.interactable = interactable;
+        if (flipYButton != null) flipYButton.interactable = interactable;
+    }
+
     // -------------------------------------------------------------------------
 
     private IEnumerator LerpTo2D(string cluster, List<float> dataX, List<float> dataY,
@@ -180,6 +229,9 @@ public class PlotView2D : MonoBehaviour
     {
         inPlotMode = true;
         backButton.gameObject.SetActive(true);
+        if (flipXButton != null) flipXButton.gameObject.SetActive(true);
+        if (flipYButton != null) flipYButton.gameObject.SetActive(true);
+        SetPlotControlsInteractable(false);
         if (hideAllStarsButton != null) hideAllStarsButton.interactable = false;
         if (searchInputField   != null) searchInputField.interactable   = false;
 
@@ -210,9 +262,7 @@ public class PlotView2D : MonoBehaviour
 
             float nx = (maxX > minX) ? (dataX[i] - minX) / (maxX - minX) : 0.5f;
             float ny = (maxY > minY) ? (dataY[i] - minY) / (maxY - minY) : 0.5f;
-            to[i] = new Vector3((nx - 0.5f) * plotHalfExtent * 2f,
-                                (ny - 0.5f) * plotHalfExtent * 2f,
-                                0f);
+            to[i] = StarPlotPosition(nx, ny);
         }
 
         // Camera at +Z looking along -Z, consistent with the default starting orientation.
@@ -240,6 +290,7 @@ public class PlotView2D : MonoBehaviour
         mainCamera.transform.SetPositionAndRotation(tgtCamPos, tgtCamRot);
 
         DrawAxes(minX, maxX, minY, maxY, xCol, yCol);
+        SetPlotControlsInteractable(true);
     }
 
     private IEnumerator LerpTo3D()
@@ -284,10 +335,11 @@ public class PlotView2D : MonoBehaviour
 
     private IEnumerator RePlot(List<float> dataX, List<float> dataY, string xCol, string yCol)
     {
+        SetPlotControlsInteractable(false);
         ClearAxes();
 
         Transform clusterTf = starPlotter.transform.Find(targetCluster);
-        if (clusterTf == null) yield break;
+        if (clusterTf == null) { SetPlotControlsInteractable(true); yield break; }
 
         int n = Mathf.Min(clusterTf.childCount, Mathf.Min(dataX.Count, dataY.Count));
 
@@ -304,9 +356,7 @@ public class PlotView2D : MonoBehaviour
 
             float nx = (maxX > minX) ? (dataX[i] - minX) / (maxX - minX) : 0.5f;
             float ny = (maxY > minY) ? (dataY[i] - minY) / (maxY - minY) : 0.5f;
-            to[i] = new Vector3((nx - 0.5f) * plotHalfExtent * 2f,
-                                (ny - 0.5f) * plotHalfExtent * 2f,
-                                0f);
+            to[i] = StarPlotPosition(nx, ny);
         }
 
         float elapsed = 0f;
@@ -323,6 +373,17 @@ public class PlotView2D : MonoBehaviour
             clusterTf.GetChild(i).position = to[i];
 
         DrawAxes(minX, maxX, minY, maxY, xCol, yCol);
+        SetPlotControlsInteractable(true);
+    }
+
+    // Maps normalised [0,1] coordinates to world plot position, respecting flip state.
+    // Unflipped X: min maps to screen-left (world +h), max to screen-right (world -h).
+    // Unflipped Y: min maps to screen-bottom (world -h), max to screen-top (world +h).
+    private Vector3 StarPlotPosition(float nx, float ny)
+    {
+        float px = (flipX ? (nx - 0.5f) : (0.5f - nx)) * plotHalfExtent * 2f;
+        float py = (flipY ? (0.5f - ny) : (ny - 0.5f)) * plotHalfExtent * 2f;
+        return new Vector3(px, py, 0f);
     }
 
     private void CleanupPlotMode()
@@ -330,6 +391,8 @@ public class PlotView2D : MonoBehaviour
         inPlotMode             = false;
         cameraMovement.enabled = true;
         backButton.gameObject.SetActive(false);
+        if (flipXButton != null) flipXButton.gameObject.SetActive(false);
+        if (flipYButton != null) flipYButton.gameObject.SetActive(false);
         if (hideAllStarsButton != null) hideAllStarsButton.interactable = true;
         if (searchInputField   != null) searchInputField.interactable   = true;
         activePlotXCol = null;
@@ -402,8 +465,11 @@ public class PlotView2D : MonoBehaviour
             float frac = i / (float)tickCount;
             float xw   = Mathf.Lerp(-h, h, frac);
             float yw   = Mathf.Lerp(-h, h, frac);
-            float xv   = Mathf.Lerp(minX, maxX, frac);
-            float yv   = Mathf.Lerp(minY, maxY, frac);
+
+            // Tick values respect flip: unflipped X runs max→min as xw goes -h→+h
+            // (because screen-left = world +h = data min for unflipped).
+            float xv = flipX ? Mathf.Lerp(minX, maxX, frac) : Mathf.Lerp(maxX, minX, frac);
+            float yv = flipY ? Mathf.Lerp(maxY, minY, frac) : Mathf.Lerp(minY, maxY, frac);
 
             CreateLine(new Vector3(xw, -h, 0f), new Vector3(xw, -h - tl, 0f),
                        axisLineWidth * 0.5f, $"XTick{i}");

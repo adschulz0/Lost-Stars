@@ -6,7 +6,9 @@
       "Bash(git gc *)",
       "Bash(git rev-list *)",
       "Bash(git cat-file *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(Remove-Item \"E:/Unity Projects/Lost-Stars/Assets/SceneRotator.cs\" -Force)",
+      "Bash(Remove-Item \"E:/Unity Projects/Lost-Stars/Assets/SceneRotator.cs.meta\" -Force)"
     ]
   }
 }
