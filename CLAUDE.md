@@ -115,33 +115,39 @@ Right-click behavior: saves absolute cursor position via `user32.dll GetCursorPo
 
 Speed: hold Shift for 2× movement and zoom speed. All manual input is blocked while `isLerping` is true or `enabled = false` (the latter set by `PlotView2D` when entering 2D mode).
 
+**Starting position:** Camera starts at `(0, 1, 1000)` facing `Euler(0, 180, 0)` (looking toward -Z, Sun to the right).
+
 **`LerpToCluster(Vector3 clusterWorldPos)`:** Public method called by `ClickHandler` (on star show) and `ClusterSearch` (on Enter with a sole visible cluster). Positions the camera `clusterViewDistance` units away from the cluster along the current approach vector, facing the cluster, via a SmoothStep coroutine over 1.5 seconds. Sets `isLerping = true` during the lerp to block manual input.
 
 ### `PlotView2D.cs`
 Attached to the Manager GameObject. Controls 2D scatter-plot mode for a selected cluster.
 
-**Panel integration:** The info panel is the shared cluster data panel. The axis X/Y dropdowns, "2D Plot" button, "Back" button, "Flip X" button, and "Flip Y" button are children of that panel, below the data fields. `PlotView2D` holds references to the panel and all controls.
+**Panel integration:** The info panel is the shared cluster data panel. The axis X/Y dropdowns, "2D Plot" button, "Back" button, "Flip X" button, and "Flip Y" button are all children of that panel. `PlotView2D` holds Inspector references to all of them.
 
 **Closing the panel (3D mode only):** `Update()` fires a physics raycast on every left click that isn't over a UI element. If the ray misses all cluster colliders, `infoPanel.SetActive(false)` is called. Does nothing while `inPlotMode` is true.
 
 **Target cluster:** `SetTargetCluster(string name)` is called by `ClickHandler` on each cluster click; ignored while in plot mode. `InPlotMode` is a public read-only property used by `ClickHandler`.
 
-**Entering 2D mode (`OnEnterPlot`):** Validates that `targetCluster` has loaded star data. Reads two data columns, normalizes values to [0,1], and resets `flipX`/`flipY` to false (and updates button visuals). Computes 2D target positions via `StarPlotPosition(nx, ny)` which maps unflipped X as min→screen-left (world +h) and max→screen-right (world -h), unflipped Y as min→screen-bottom (world -h) and max→screen-top (world +h). Before lerping: restores all cluster dot visibility and clears the search field. Calls `HideSceneObjects()`. Runs `LerpTo2D` coroutine: SmoothStep-lerps all stars and the camera simultaneously over `lerpDuration` seconds. Camera target is `(0, 0, camDist)` with `Euler(0, 180, 0)` rotation. Saves original star world positions in a `Dictionary<int, Vector3>` keyed by instance ID. After lerp completes, draws world-space axis lines and labels. If called again while already in plot mode with different columns, runs `RePlot` instead (clears axes, lerps stars to new positions, redraws axes — no camera move). Flips are always reset on each new/changed plot.
+**Entering 2D mode (`OnEnterPlot`):** Validates that `targetCluster` has loaded star data. Reads two data columns and resets `flipX`/`flipY` to false on every new or changed plot. Normalizes values to [0,1] and computes 2D target positions via `StarPlotPosition(nx, ny)`. Default (unflipped) mapping: X min→screen-left (world +h), X max→screen-right (world -h); Y min→screen-bottom (world -h), Y max→screen-top (world +h). This gives standard scientific axis orientation (min-to-max left-to-right and bottom-to-top). Before lerping: restores all cluster dot visibility and clears the search field, then calls `HideSceneObjects()`. Runs `LerpTo2D` coroutine which disables plot controls (`SetPlotControlsInteractable(false)`), shows the Flip X/Y buttons, SmoothStep-lerps all stars and the camera simultaneously over `lerpDuration` seconds, then re-enables controls and draws axes when done. Camera target is `(0, 0, camDist)` with `Euler(0, 180, 0)` rotation (looking along -Z from +Z side). Saves original star world positions in a `Dictionary<int, Vector3>` keyed by instance ID on first entry. If called again while already in plot mode with different columns, runs `RePlot` instead (same disable/lerp/enable/draw sequence, no camera move).
 
-**Flip toggles (`OnFlipX`, `OnFlipY`):** Toggle `flipX`/`flipY` and tint the button light blue when active (white when inactive). If in plot mode, call `RefreshFlip()` which re-fetches column data and runs `RePlot` with the new flip state. `DrawAxes` uses the flip state to pick correct tick label values: unflipped X ticks run `maxX→minX` as world position goes `-h→+h`; unflipped Y ticks run `minY→maxY` as world position goes `-h→+h`.
+**Flip toggles (`OnFlipX`, `OnFlipY`):** Toggle `flipX`/`flipY`, then call `EventSystem.current.SetSelectedGameObject(null)` to clear button highlight. If in plot mode, `RefreshFlip()` re-fetches column data and runs `RePlot` with the updated flip state. The Flip X/Y buttons are hidden (`SetActive(false)`) outside plot mode and shown when entering it; they are also disabled during any active lerp via `SetPlotControlsInteractable`. `DrawAxes` uses the flip state for tick label values: unflipped X ticks run `maxX→minX` as world x goes `-h→+h`; flipped X runs `minX→maxX`. Unflipped Y ticks run `minY→maxY` as world y goes `-h→+h`; flipped Y runs `maxY→minY`.
+
+**`SetPlotControlsInteractable(bool)`:** Enables or disables `enterPlotButton`, `axisXDropdown`, `axisYDropdown`, `flipXButton`, and `flipYButton` together. Called at the start of `LerpTo2D` and `RePlot` (disable) and again after `DrawAxes` completes (enable).
 
 **`OnClusterSearchChanged(string query)`:** Called by `ClusterSearch` after each filter pass. While not in plot mode, hides or shows the info panel based on whether `targetCluster` matches the current query.
 
 **Hiding scene objects (`HideSceneObjects`):** All cluster dot GameObjects except the target cluster are hidden with `SetActive(false)`. The target cluster's dot `Renderer` is disabled rather than the whole GameObject (so its star children stay active for the plot). Sun and Sagittarius A are found by name (lazily cached) and hidden with `SetActive(false)`.
 
-**Exiting 2D mode (`OnBack`):** Destroys axis GameObjects, then runs `LerpTo3D` coroutine: lerps stars back to stored originals and camera back to saved transform. On completion, `CleanupPlotMode()` re-enables `Movement`, restores interactability of `hideAllStarsButton` and `searchInputField`, and calls `ShowSceneObjects()` to restore all hidden objects. Info panel remains open.
+**Exiting 2D mode (`OnBack`):** Destroys axis GameObjects, then runs `LerpTo3D` coroutine: lerps stars back to stored originals and camera back to saved transform. On completion, `CleanupPlotMode()` re-enables `Movement`, hides Flip X/Y buttons, restores interactability of `hideAllStarsButton` and `searchInputField`, and calls `ShowSceneObjects()` to restore all hidden objects. Info panel remains open.
 
-**Axes:** World-space `LineRenderer` objects for axis lines and tick marks. World-space `TextMeshPro` objects for tick value labels (`F1` format) and axis titles (Y title rotated `Euler(0,180,90)`). All tracked in `axisObjects` list and destroyed on exit. Y axis is on the right side (world x=+h = screen left for the +Z camera). All labels have `Euler(0,180,0)` rotation so they face the camera.
+**Axes:** World-space `LineRenderer` objects for axis lines and tick marks. World-space `TextMeshPro` objects for tick value labels (`F1` format) and axis titles. Y axis line is drawn at world x=+h (screen left). Y title is rotated `Euler(0,180,90)`. All labels are rotated `Euler(0,180,0)` so they face the +Z camera. All axis objects are tracked in `axisObjects` and destroyed on exit or re-plot.
+
+**Available plot columns:** X, Y, Z (kpc), RA, Dec (°), Helio_Dist (kpc), RV (km/s), pm_ra, pm_dec (mas/yr), l, b (°), Release_Time (Myr). Dropdowns default to X (index 0) and Y (index 1).
 
 **Inspector fields:** `loadData`, `starPlotter`, `cameraMovement`, `mainCamera`, `infoPanel`, `axisXDropdown`, `axisYDropdown`, `enterPlotButton`, `backButton`, `flipXButton`, `flipYButton`, `hideAllStarsButton` (optional), `searchInputField` (optional), `plotHalfExtent` (500), `lerpDuration` (1.5), `tickCount` (4), `axisLineWidth` (3), `tickLength` (15), `labelFontSize` (300), `titleFontSize` (300).
 
 ### `Buttons.cs`
-Attached to a UI button. `HideAllStars()` closes the info panel, then walks all cluster children of Manager, deactivates visible stars, and sets `ClickHandler.starsVisible = false`.
+Attached to the "Hide All Stars" UI button. `HideAllStars()` closes the info panel, then walks all cluster children of Manager, deactivates visible stars, and sets `ClickHandler.starsVisible = false`.
 
 ### `ClusterSearch.cs`
 Attached to a UI InputField. Has references to `manager`, `plotView2D`, and `cameraMovement`.
@@ -171,9 +177,9 @@ Custom Inspector for `StarColorMapper`. Draws all normal fields first, then a **
 - Cluster prefabs get `ClickHandler` attached. Each cluster's child GameObjects are its stars. The cluster dot and its stars share the same parent GameObject.
 - Sun and Sagittarius A\* are instantiated at the scene root (no parent), named `"Sun"` and `"Sagittarius A"` respectively.
 - The "Canvas World Space" GameObject contains a legacy `Text` component used as a floating cluster name label in 3D space (shown on hover, hidden on mouse exit).
-- The info panel (starts inactive) is opened by clicking a cluster and closed by clicking empty space. It contains TMP fields wired to `Elements`, plus the 2D plot controls (axis X dropdown, axis Y dropdown, "2D Plot" button, "Back" button, "Flip X" button, "Flip Y" button) as children below the data fields.
+- The info panel (starts inactive) is opened by clicking a cluster and closed by clicking empty space. It contains TMP fields wired to `Elements`, plus the 2D plot controls (axis X dropdown, axis Y dropdown, "2D Plot" button, "Back" button, "Flip X" button, "Flip Y" button) as children below the data fields. The "Back", "Flip X", and "Flip Y" buttons start inactive and are shown only while in 2D plot mode. The "Flip X" and "Flip Y" buttons are also non-interactable during any active lerp.
 - `StarColorMapper` requires `LoadData`, `StarPlotter`, a `TMP_Dropdown`, a `RawImage`, and three TMP labels assigned in the Inspector.
-- `PlotView2D` requires `LoadData`, `StarPlotter`, `Movement` (Main Camera), `Camera` (Main Camera), `infoPanel` (the cluster info panel), `axisXDropdown`, `axisYDropdown`, `enterPlotButton`, `backButton` — all assigned in the Inspector. `flipXButton` and `flipYButton` are also Inspector-assigned (both children of the info panel). `backButton` starts inactive. `hideAllStarsButton` and `searchInputField` are optional references used to toggle interactability while in plot mode.
+- `PlotView2D` requires `LoadData`, `StarPlotter`, `Movement` (Main Camera), `Camera` (Main Camera), `infoPanel` (the cluster info panel), `axisXDropdown`, `axisYDropdown`, `enterPlotButton`, `backButton`, `flipXButton`, `flipYButton` — all assigned in the Inspector. `hideAllStarsButton` and `searchInputField` are optional references used to toggle interactability while in plot mode.
 
 ---
 
@@ -189,12 +195,17 @@ globular_clusters.csv  →  LoadData.ReadClustersCSV()  →  clusterPositions + 
                        →  Instantiate star prefabs as children
                        →  StarColorMapper.ColorizeCluster()  →  MaterialPropertyBlock colors
 
-[2D Plot button]       →  PlotView2D.OnEnterPlot()
+[2D Plot button]       →  PlotView2D.OnEnterPlot()    →  reset flipX/flipY, disable plot controls
                        →  HideSceneObjects()           →  cluster dots + Sun + Sag A hidden
-                       →  LerpTo2D coroutine           →  stars + camera lerp to XY plane
+                       →  LerpTo2D coroutine           →  show Flip X/Y, lerp stars + camera to XY plane
                        →  DrawAxes()                   →  world-space LineRenderer + TMP labels
+                       →  re-enable plot controls
+
+[Flip X / Flip Y]      →  PlotView2D.OnFlipX/Y()      →  toggle flip state, disable plot controls
+                       →  RePlot coroutine             →  lerp stars to mirrored positions, redraw axes
+                       →  re-enable plot controls
 
 [Back button]          →  PlotView2D.OnBack()
-                       →  LerpTo3D coroutine           →  stars + camera lerp to saved transforms
-                       →  ShowSceneObjects()           →  all scene objects restored
+                       →  LerpTo3D coroutine           →  lerp stars + camera back to saved transforms
+                       →  CleanupPlotMode()            →  hide Flip X/Y, show scene objects
 ```
