@@ -55,6 +55,7 @@ public class ClickHandler : MonoBehaviour
 
         string name = gameObject.name;
         clusterNameText.text = name;
+        clusterNameText.color = Color.black;
         clusterNameText.transform.position   = gameObject.transform.position + new Vector3(0, 50, 0);
         clusterNameText.transform.localScale = new Vector3(-1, 1, 1);
         clusterNameText.transform.LookAt(Camera.main.transform);

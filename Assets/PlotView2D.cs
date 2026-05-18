@@ -23,6 +23,7 @@ public class PlotView2D : MonoBehaviour
     public Button       backButton;
     public Button       flipXButton;
     public Button       flipYButton;
+    public Button       downloadPlotButton;
 
     [Header("Other UI")]
     public Button     hideAllStarsButton;
@@ -99,8 +100,9 @@ public class PlotView2D : MonoBehaviour
 
         enterPlotButton.onClick.AddListener(OnEnterPlot);
         backButton.onClick.AddListener(OnBack);
-        if (flipXButton != null) { flipXButton.onClick.AddListener(OnFlipX); flipXButton.gameObject.SetActive(false); }
-        if (flipYButton != null) { flipYButton.onClick.AddListener(OnFlipY); flipYButton.gameObject.SetActive(false); }
+        if (flipXButton        != null) { flipXButton.onClick.AddListener(OnFlipX);        flipXButton.gameObject.SetActive(false); }
+        if (flipYButton        != null) { flipYButton.onClick.AddListener(OnFlipY);        flipYButton.gameObject.SetActive(false); }
+        if (downloadPlotButton != null) downloadPlotButton.gameObject.SetActive(false);
     }
 
     void Update()
@@ -218,8 +220,9 @@ public class PlotView2D : MonoBehaviour
         enterPlotButton.interactable          = interactable;
         axisXDropdown.interactable            = interactable;
         axisYDropdown.interactable            = interactable;
-        if (flipXButton != null) flipXButton.interactable = interactable;
-        if (flipYButton != null) flipYButton.interactable = interactable;
+        if (flipXButton        != null) flipXButton.interactable        = interactable;
+        if (flipYButton        != null) flipYButton.interactable        = interactable;
+        if (downloadPlotButton != null) downloadPlotButton.interactable = interactable;
     }
 
     // -------------------------------------------------------------------------
@@ -229,8 +232,9 @@ public class PlotView2D : MonoBehaviour
     {
         inPlotMode = true;
         backButton.gameObject.SetActive(true);
-        if (flipXButton != null) flipXButton.gameObject.SetActive(true);
-        if (flipYButton != null) flipYButton.gameObject.SetActive(true);
+        if (flipXButton        != null) flipXButton.gameObject.SetActive(true);
+        if (flipYButton        != null) flipYButton.gameObject.SetActive(true);
+        if (downloadPlotButton != null) downloadPlotButton.gameObject.SetActive(true);
         SetPlotControlsInteractable(false);
         if (hideAllStarsButton != null) hideAllStarsButton.interactable = false;
         if (searchInputField   != null) searchInputField.interactable   = false;
@@ -391,8 +395,9 @@ public class PlotView2D : MonoBehaviour
         inPlotMode             = false;
         cameraMovement.enabled = true;
         backButton.gameObject.SetActive(false);
-        if (flipXButton != null) flipXButton.gameObject.SetActive(false);
-        if (flipYButton != null) flipYButton.gameObject.SetActive(false);
+        if (flipXButton        != null) flipXButton.gameObject.SetActive(false);
+        if (flipYButton        != null) flipYButton.gameObject.SetActive(false);
+        if (downloadPlotButton != null) downloadPlotButton.gameObject.SetActive(false);
         if (hideAllStarsButton != null) hideAllStarsButton.interactable = true;
         if (searchInputField   != null) searchInputField.interactable   = true;
         activePlotXCol = null;
@@ -494,7 +499,7 @@ public class PlotView2D : MonoBehaviour
         yTmp.text                  = WithUnit(yLabel);
         yTmp.fontSize              = titleFontSize;
         yTmp.alignment             = TextAlignmentOptions.Center;
-        yTmp.color                 = Color.white;
+        yTmp.color                 = Color.black;
         yTmp.enableWordWrapping    = false;
         yTitleGo.transform.position = new Vector3(h + tl + gap * 7f, 0f, 0f);
         yTitleGo.transform.rotation = Quaternion.Euler(0f, 180f, 90f);
@@ -509,7 +514,7 @@ public class PlotView2D : MonoBehaviour
         lr.SetPositions(new[] { start, end });
         lr.startWidth    = lr.endWidth = width;
         lr.material      = new Material(Shader.Find("Sprites/Default"));
-        lr.startColor    = lr.endColor = Color.white;
+        lr.startColor    = lr.endColor = Color.black;
         lr.useWorldSpace = true;
     }
 
@@ -521,7 +526,7 @@ public class PlotView2D : MonoBehaviour
         tmp.text               = text;
         tmp.fontSize           = fontSize;
         tmp.alignment          = alignment;
-        tmp.color              = Color.white;
+        tmp.color              = Color.black;
         tmp.enableWordWrapping = false;
         go.transform.position  = position;
         go.transform.rotation  = Quaternion.Euler(0f, 180f, 0f);
