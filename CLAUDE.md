@@ -122,7 +122,7 @@ Speed: hold Shift for 2× movement and zoom speed. All manual input is blocked w
 ### `PlotView2D.cs`
 Attached to the Manager GameObject. Controls 2D scatter-plot mode for a selected cluster.
 
-**Panel integration:** The info panel is the shared cluster data panel. The axis X/Y dropdowns, "2D Plot" button, "Back" button, "Flip X" button, and "Flip Y" button are all children of that panel. `PlotView2D` holds Inspector references to all of them.
+**Panel integration:** The info panel is the shared cluster data panel. The axis X/Y dropdowns, "2D Plot" button, "Back" button, "Flip X" button, "Flip Y" button, and "Download Plot" button are all children of that panel. `PlotView2D` holds Inspector references to all of them.
 
 **Closing the panel (3D mode only):** `Update()` fires a physics raycast on every left click that isn't over a UI element. If the ray misses all cluster colliders, `infoPanel.SetActive(false)` is called. Does nothing while `inPlotMode` is true.
 
@@ -132,7 +132,9 @@ Attached to the Manager GameObject. Controls 2D scatter-plot mode for a selected
 
 **Flip toggles (`OnFlipX`, `OnFlipY`):** Toggle `flipX`/`flipY`, then call `EventSystem.current.SetSelectedGameObject(null)` to clear button highlight. If in plot mode, `RefreshFlip()` re-fetches column data and runs `RePlot` with the updated flip state. The Flip X/Y buttons are hidden (`SetActive(false)`) outside plot mode and shown when entering it; they are also disabled during any active lerp via `SetPlotControlsInteractable`. `DrawAxes` uses the flip state for tick label values: unflipped X ticks run `maxX→minX` as world x goes `-h→+h`; flipped X runs `minX→maxX`. Unflipped Y ticks run `minY→maxY` as world y goes `-h→+h`; flipped Y runs `maxY→minY`.
 
-**`SetPlotControlsInteractable(bool)`:** Enables or disables `enterPlotButton`, `axisXDropdown`, `axisYDropdown`, `flipXButton`, and `flipYButton` together. Called at the start of `LerpTo2D` and `RePlot` (disable) and again after `DrawAxes` completes (enable).
+**`SetPlotControlsInteractable(bool)`:** Enables or disables `enterPlotButton`, `axisXDropdown`, `axisYDropdown`, `flipXButton`, `flipYButton`, and `downloadPlotButton` together. Called at the start of `LerpTo2D` and `RePlot` (disable) and again after `DrawAxes` completes (enable).
+
+**Download Plot (`OnDownloadPlot`):** Visible and interactable only while in plot mode (shown by `LerpTo2D`, hidden by `CleanupPlotMode`, disabled during lerps via `SetPlotControlsInteractable`). On click: fetches the two active plot columns and `Release_Time` from `LoadData`, writes a UTF-8 temp CSV to `Path.GetTempPath()` with header `x,y,release_time`, then launches `StreamingAssets/plot.py` via `System.Diagnostics.Process` (`UseShellExecute = false`, `CreateNoWindow = true`, stdout and stderr redirected). Waits for the process to exit and logs stdout with `Debug.Log` and stderr with `Debug.LogError`. Output PNG is saved to the user's Desktop as `<ClusterName>_<XCol>_vs_<YCol>.png`. Cluster names are sanitized with `Path.GetInvalidFileNameChars()` for use in both the temp CSV filename and the output PNG filename. Requires `python` on the system PATH with `matplotlib` and `numpy` installed.
 
 **`OnClusterSearchChanged(string query)`:** Called by `ClusterSearch` after each filter pass. While not in plot mode, hides or shows the info panel based on whether `targetCluster` matches the current query.
 
@@ -144,7 +146,7 @@ Attached to the Manager GameObject. Controls 2D scatter-plot mode for a selected
 
 **Available plot columns:** X, Y, Z (kpc), RA, Dec (°), Helio_Dist (kpc), RV (km/s), pm_ra, pm_dec (mas/yr), l, b (°), Release_Time (Myr). Dropdowns default to X (index 0) and Y (index 1).
 
-**Inspector fields:** `loadData`, `starPlotter`, `cameraMovement`, `mainCamera`, `infoPanel`, `axisXDropdown`, `axisYDropdown`, `enterPlotButton`, `backButton`, `flipXButton`, `flipYButton`, `hideAllStarsButton` (optional), `searchInputField` (optional), `plotHalfExtent` (500), `lerpDuration` (1.5), `tickCount` (4), `axisLineWidth` (3), `tickLength` (15), `labelFontSize` (300), `titleFontSize` (300).
+**Inspector fields:** `loadData`, `starPlotter`, `cameraMovement`, `mainCamera`, `infoPanel`, `axisXDropdown`, `axisYDropdown`, `enterPlotButton`, `backButton`, `flipXButton`, `flipYButton`, `downloadPlotButton`, `hideAllStarsButton` (optional), `searchInputField` (optional), `plotHalfExtent` (500), `lerpDuration` (1.5), `tickCount` (4), `axisLineWidth` (3), `tickLength` (15), `labelFontSize` (300), `titleFontSize` (300).
 
 ### `Buttons.cs`
 Attached to the "Hide All Stars" UI button. `HideAllStars()` closes the info panel, then walks all cluster children of Manager, deactivates visible stars, and sets `ClickHandler.starsVisible = false`.
@@ -166,6 +168,9 @@ Two menu items under **Lost Stars/** in the Unity menu bar:
 1. **Lost Stars > 1. Move allStars to StreamingAssets** — moves `Assets/Resources/allStars.csv` → `Assets/StreamingAssets/allStars.csv` using `AssetDatabase.MoveAsset`.
 2. **Lost Stars > 2. Build Star Index** — byte-scans `allStars.csv`, records `(StartByte, ByteLength)` per cluster, writes `Assets/StreamingAssets/allStars_index.csv`. Run this once after step 1; re-run if the CSV changes.
 
+### `Assets/StreamingAssets/plot.py`
+Python script invoked by `PlotView2D.OnDownloadPlot()`. Accepts six positional arguments: CSV path, cluster name, X column name, Y column name, output PNG path. Reads the temp CSV (UTF-8-sig to strip any BOM), builds a matplotlib scatter plot with viridis coloring keyed to `Release_Time`, adds a colorbar labeled `Release_Time (Myr)`, labels axes with column name and unit (e.g. `X (kpc)`, `RV (km/s)`), sets the cluster name as the title, and saves a 150 dpi PNG to the provided output path. Uses the `Agg` backend so it runs headlessly without opening a display window.
+
 ### `Assets/Editor/StarColorMapperEditor.cs`
 Custom Inspector for `StarColorMapper`. Draws all normal fields first, then a **Reset to Viridis** button, then the four gradient color fields. The button sets all four colors back to the viridis keypoints and marks the object dirty.
 
@@ -177,9 +182,9 @@ Custom Inspector for `StarColorMapper`. Draws all normal fields first, then a **
 - Cluster prefabs get `ClickHandler` attached. Each cluster's child GameObjects are its stars. The cluster dot and its stars share the same parent GameObject.
 - Sun and Sagittarius A\* are instantiated at the scene root (no parent), named `"Sun"` and `"Sagittarius A"` respectively.
 - The "Canvas World Space" GameObject contains a legacy `Text` component used as a floating cluster name label in 3D space (shown on hover, hidden on mouse exit).
-- The info panel (starts inactive) is opened by clicking a cluster and closed by clicking empty space. It contains TMP fields wired to `Elements`, plus the 2D plot controls (axis X dropdown, axis Y dropdown, "2D Plot" button, "Back" button, "Flip X" button, "Flip Y" button) as children below the data fields. The "Back", "Flip X", and "Flip Y" buttons start inactive and are shown only while in 2D plot mode. The "Flip X" and "Flip Y" buttons are also non-interactable during any active lerp.
+- The info panel (starts inactive) is opened by clicking a cluster and closed by clicking empty space. It contains TMP fields wired to `Elements`, plus the 2D plot controls (axis X dropdown, axis Y dropdown, "2D Plot" button, "Back" button, "Flip X" button, "Flip Y" button, "Download Plot" button) as children below the data fields. The "Back", "Flip X", "Flip Y", and "Download Plot" buttons start inactive and are shown only while in 2D plot mode. The "Flip X", "Flip Y", and "Download Plot" buttons are also non-interactable during any active lerp.
 - `StarColorMapper` requires `LoadData`, `StarPlotter`, a `TMP_Dropdown`, a `RawImage`, and three TMP labels assigned in the Inspector.
-- `PlotView2D` requires `LoadData`, `StarPlotter`, `Movement` (Main Camera), `Camera` (Main Camera), `infoPanel` (the cluster info panel), `axisXDropdown`, `axisYDropdown`, `enterPlotButton`, `backButton`, `flipXButton`, `flipYButton` — all assigned in the Inspector. `hideAllStarsButton` and `searchInputField` are optional references used to toggle interactability while in plot mode.
+- `PlotView2D` requires `LoadData`, `StarPlotter`, `Movement` (Main Camera), `Camera` (Main Camera), `infoPanel` (the cluster info panel), `axisXDropdown`, `axisYDropdown`, `enterPlotButton`, `backButton`, `flipXButton`, `flipYButton`, `downloadPlotButton` — all assigned in the Inspector. `hideAllStarsButton` and `searchInputField` are optional references used to toggle interactability while in plot mode.
 
 ---
 
@@ -205,7 +210,11 @@ globular_clusters.csv  →  LoadData.ReadClustersCSV()  →  clusterPositions + 
                        →  RePlot coroutine             →  lerp stars to mirrored positions, redraw axes
                        →  re-enable plot controls
 
+[Download Plot button] →  PlotView2D.OnDownloadPlot()  →  write temp CSV (x, y, release_time)
+                       →  System.Diagnostics.Process   →  python StreamingAssets/plot.py
+                       →  plot.py                      →  matplotlib scatter + viridis colorbar → PNG on Desktop
+
 [Back button]          →  PlotView2D.OnBack()
                        →  LerpTo3D coroutine           →  lerp stars + camera back to saved transforms
-                       →  CleanupPlotMode()            →  hide Flip X/Y, show scene objects
+                       →  CleanupPlotMode()            →  hide Flip X/Y + Download Plot, show scene objects
 ```

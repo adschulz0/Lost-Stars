@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -102,7 +103,7 @@ public class PlotView2D : MonoBehaviour
         backButton.onClick.AddListener(OnBack);
         if (flipXButton        != null) { flipXButton.onClick.AddListener(OnFlipX);        flipXButton.gameObject.SetActive(false); }
         if (flipYButton        != null) { flipYButton.onClick.AddListener(OnFlipY);        flipYButton.gameObject.SetActive(false); }
-        if (downloadPlotButton != null) downloadPlotButton.gameObject.SetActive(false);
+        if (downloadPlotButton != null) { downloadPlotButton.onClick.AddListener(OnDownloadPlot); downloadPlotButton.gameObject.SetActive(false); }
     }
 
     void Update()
@@ -211,6 +212,59 @@ public class PlotView2D : MonoBehaviour
         if (dataX == null || dataY == null) return;
         if (activeCoroutine != null) StopCoroutine(activeCoroutine);
         activeCoroutine = StartCoroutine(RePlot(dataX, dataY, activePlotXCol, activePlotYCol));
+    }
+
+    private void OnDownloadPlot()
+    {
+        if (!inPlotMode || string.IsNullOrEmpty(targetCluster)) return;
+
+        List<float> dataX  = loadData.GetColumnData(targetCluster, activePlotXCol);
+        List<float> dataY  = loadData.GetColumnData(targetCluster, activePlotYCol);
+        List<float> dataRT = loadData.GetColumnData(targetCluster, "Release_Time");
+        if (dataX == null || dataY == null || dataRT == null || dataX.Count == 0) return;
+
+        int n = Mathf.Min(dataX.Count, Mathf.Min(dataY.Count, dataRT.Count));
+
+        string safeName = string.Concat(targetCluster.Split(Path.GetInvalidFileNameChars()));
+        string csvPath  = Path.Combine(Path.GetTempPath(),
+            $"lost_stars_{safeName}_{System.DateTime.Now:yyyyMMddHHmmss}.csv");
+
+        Debug.Log($"[DownloadPlot] Temp CSV: {csvPath}");
+
+        using (var writer = new StreamWriter(csvPath, false, System.Text.Encoding.UTF8))
+        {
+            writer.WriteLine("x,y,release_time");
+            for (int i = 0; i < n; i++)
+                writer.WriteLine($"{dataX[i]},{dataY[i]},{dataRT[i]}");
+        }
+
+        string[] csvPreview = File.ReadAllLines(csvPath);
+        Debug.Log($"[DownloadPlot] CSV preview:\n{string.Join("\n", csvPreview, 0, Mathf.Min(3, csvPreview.Length))}");
+
+        string desktopPath = System.Environment.GetFolderPath(System.Environment.SpecialFolder.Desktop);
+        string pngPath     = Path.Combine(desktopPath, $"{safeName}_{activePlotXCol}_vs_{activePlotYCol}.png");
+        string scriptPath  = Path.Combine(Application.streamingAssetsPath, "plot.py");
+
+        Debug.Log($"[DownloadPlot] Output PNG: {pngPath}");
+
+        var psi = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName               = "python",
+            Arguments              = $"\"{scriptPath}\" \"{csvPath}\" \"{targetCluster}\" \"{activePlotXCol}\" \"{activePlotYCol}\" \"{pngPath}\"",
+            UseShellExecute        = false,
+            CreateNoWindow         = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError  = true,
+        };
+
+        using (var proc = System.Diagnostics.Process.Start(psi))
+        {
+            string stdout = proc.StandardOutput.ReadToEnd();
+            string stderr = proc.StandardError.ReadToEnd();
+            proc.WaitForExit();
+            if (!string.IsNullOrWhiteSpace(stdout)) Debug.Log($"[DownloadPlot] {stdout.Trim()}");
+            if (!string.IsNullOrWhiteSpace(stderr)) Debug.LogError($"[DownloadPlot] {stderr.Trim()}");
+        }
     }
 
     private static void UpdateFlipVisual(Button btn, bool active) { }
