@@ -6,7 +6,7 @@ A real-data visualization of the Milky Way's globular clusters and their member 
 
 Lost Stars was built to help undergraduate researchers get familiar with 2D data. Instead of working in Python to generate plots of various parameters, they can fly in three dimensions, interact and see where their data comes from.
 
-![Plotting demonstration](docs/lost stars demo 2.gif)
+![Plotting demonstration](docs/lost_stars_plotting_demo.gif)
 
 ---
 
