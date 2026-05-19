@@ -1,0 +1,129 @@
+# Lost Stars
+
+A real-data visualization of the Milky Way's globular clusters and their member stars, built in Unity. Fly through a 3D scene, click clusters to load their stars, and project any two stellar data columns onto a 2D scatter plot.
+
+![Screenshot placeholder](docs/screenshot.png)
+
+---
+
+## Features
+
+- **3D flight** through ~150 globular clusters at true galactic coordinates
+- **On-demand star loading** via byte-range indexing — no upfront load time for 125 MB of star data
+- **Per-cluster info panel** showing distance, radial velocity, mass, and age
+- **2D scatter plot mode** for any pair of stellar data columns with animated transitions
+- **Axis flipping** to match conventional plot orientation
+- **Viridis colormap** applied to stars by any selected data column, with a live colorbar
+- **Cluster search** by name with camera fly-to on single result
+- **Plot export** to PNG via Python/matplotlib, saved to the Desktop
+
+---
+
+## Data
+
+### Globular clusters (`globular_clusters.csv`)
+Harris Catalog data for ~150 Milky Way globular clusters. Positions are in galactocentric Cartesian coordinates (kpc). Additional fields: heliocentric distance, radial velocity, mass, and age.
+
+### Member stars (`allStars.csv`, ~125 MB)
+Individual stars across all clusters, generated from N-body simulations using the galpy/gala framework.. Each star has:
+
+| Column | Unit | Description |
+|---|---|---|
+| RA, Dec | deg | Equatorial coordinates |
+| Helio_Dist | kpc | Heliocentric distance |
+| X, Y, Z | kpc | Galactocentric Cartesian position |
+| RV | km/s | Radial velocity |
+| pm_ra, pm_dec | mas/yr | Proper motion |
+| l, b | deg | Galactic longitude and latitude |
+| Release_Time | Myr | Time since star was stripped from the cluster (negative = past) |
+
+Sagittarius A* is at the origin. The Sun sits ~8.5 kpc from the galactic center.
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- Unity 2021.3 LTS or later
+- Python 3 with `matplotlib` and `numpy` (for plot export only)
+
+### Setup
+
+1. **Clone the repo** and open the project in Unity.
+
+2. **Obtain the data files.** The large data files are not tracked in git. Place them as follows:
+   - `Assets/StreamingAssets/allStars.csv` (~125 MB, one row per star)
+   - `Assets/Resources/globular_clusters.csv` (one row per cluster)
+
+3. **Build the star index.** In the Unity menu bar:
+   ```
+   Lost Stars > 1. Move allStars to StreamingAssets
+   Lost Stars > 2. Build Star Index
+   ```
+   Step 1 moves `allStars.csv` into StreamingAssets if it isn't already there. Step 2 byte-scans the file and writes `allStars_index.csv`, which the runtime uses to seek directly to each cluster's data without loading the full file. Re-run step 2 any time `allStars.csv` changes.
+
+4. **Enter Play mode.** The scene loads instantly. Clusters appear as dots in 3D space.
+
+---
+
+## Controls
+
+| Input | Action |
+|---|---|
+| W / A / S / D | Move forward / left / back / right |
+| Q / E or Space | Move down / up |
+| Shift | 2x movement speed |
+| Right-click drag | Look around |
+| Left-click cluster | Open info panel, load and reveal stars |
+| Left-click cluster (again) | Toggle star visibility |
+| Left-click empty space | Close info panel |
+| Mouse over cluster | Show cluster name label |
+
+### 2D Plot Mode
+
+1. Click a cluster to open the info panel.
+2. Select X and Y axes from the dropdowns.
+3. Click **2D Plot** to enter scatter plot mode.
+4. Use **Flip X** / **Flip Y** to mirror axes.
+5. Click **Download Plot** to export a PNG to the Desktop (requires Python).
+6. Click **Back** to return to 3D.
+
+---
+
+## Plot Export
+
+The **Download Plot** button writes a temporary CSV and calls `Assets/StreamingAssets/plot.py` via `System.Diagnostics.Process`. The script uses matplotlib with the `Agg` backend (no display required). Output is saved to the Desktop as `<ClusterName>_<XCol>_vs_<YCol>.png`.
+
+Python must be on the system PATH with `matplotlib` and `numpy` installed:
+
+```
+pip install matplotlib numpy
+```
+
+---
+
+## Project Structure
+
+```
+Assets/
+  Editor/
+    StarIndexBuilder.cs      # Menu tools: move CSV, build byte-range index
+    StarColorMapperEditor.cs # Custom Inspector with viridis reset button
+  Resources/
+    globular_clusters.csv    # Cluster catalog (loaded at startup)
+  Scripts/
+    LoadData.cs              # Data store, byte-range star loading
+    StarPlotter.cs           # GameObject instantiation for clusters and stars
+    StarColorMapper.cs       # Column-based coloring via MaterialPropertyBlock
+    ClickHandler.cs          # Per-cluster interaction (hover, click, reveal)
+    PlotView2D.cs            # 2D scatter plot mode
+    Movement.cs              # Camera flight controls
+    ClusterSearch.cs         # Name filter with fly-to on single result
+    Buttons.cs               # Hide-all-stars button logic
+    Elements.cs              # UI reference bag
+  StreamingAssets/
+    allStars.csv             # Star data (not in git, ~125 MB)
+    allStars_index.csv       # Byte-range index (generated by editor tool)
+    plot.py                  # matplotlib export script
+```
