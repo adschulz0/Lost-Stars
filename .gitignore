@@ -76,6 +76,6 @@ crashlytics-build.properties
 
 # End of https://www.toptal.com/developers/gitignore/api/unity
 
-# Claude Code project instructions
+# Claude files
 CLAUDE.md
 .claude/
