@@ -2,7 +2,11 @@
 
 A real-data visualization of the Milky Way's globular clusters and their member stars, built in Unity. Fly through a 3D scene, click clusters to load their stars, and project any two stellar data columns onto a 2D scatter plot.
 
-![Screenshot placeholder](docs/screenshot.png)
+## Background
+
+Lost Stars was built to help undergraduate researchers get familiar with 2D data. Instead of working in Python to generate plots of various parameters, they can fly in three dimensions, interact and see where their data comes from.
+
+![Plotting demonstration](docs/lost stars demo 2.gif)
 
 ---
 
